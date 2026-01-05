@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ノムトレ - 借金返済ダイエット</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+<link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { light: '#E0E7FF', DEFAULT: '#4F46E5', dark: '#3730A3' },
+                        beer: { lager: '#FBBF24', hazy: '#F59E0B' }
+                    },
+                    animation: {
+                        'wave': 'wave 2s infinite linear',
+                        'bubble': 'bubble 2s infinite ease-in',
+                    },
+                    keyframes: {
+                        wave: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        },
+                        bubble: {
+                            '0%': { bottom: '-10%', opacity: '0' },
+                            '50%': { opacity: '1' },
+                            '100%': { bottom: '110%', opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; padding-bottom: 10rem; }
+        .log-container::-webkit-scrollbar { width: 4px; }
+        .log-container::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 2px; }
+        .app-header-bg { background: linear-gradient(to bottom, #ffffff, #f3f4f6); }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease; max-height: 500px; opacity: 1; overflow: hidden; }
+        .accordion-content.hidden-area { max-height: 0; opacity: 0; margin: 0 !important; padding: 0 !important; border: none !important; }
+
+        .glass-container { width: 120px; height: 180px; position: relative; z-index: 1; flex-shrink: 0; }
+        .glass-body {
+            width: 100%; height: 100%; background: rgba(255, 255, 255, 0.2);
+            border: 5px solid rgba(255, 255, 255, 0.8); border-top: none; border-radius: 0 0 20px 20px;
+            position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.5);
+            backdrop-filter: blur(2px);
+        }
+        .glass-handle {
+            position: absolute; right: -25px; top: 30px; width: 35px; height: 80px;
+            border: 5px solid rgba(255, 255, 255, 0.8); border-left: none; border-radius: 0 20px 20px 0; z-index: 0;
+        }
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 0%;
+            transition: height 1s ease-in-out, background-color 0.5s ease; z-index: 2;
+        }
+        .liquid.mode1 { background: linear-gradient(to top, #d97706, #fbbf24); opacity: 0.9; }
+        .liquid.mode2 { background: linear-gradient(to top, #d97706, #fbbf24); filter: blur(1px) brightness(1.1); opacity: 1; }
+        
+        .wave-surface {
+            position: absolute; top: -5px; left: 0; width: 200%; height: 20px;
+            background: inherit; border-radius: 40%; opacity: 0.6; animation: wave 3s infinite linear;
+        }
+        .bubble { position: absolute; background: rgba(255,255,255,0.6); border-radius: 50%; }
+        
+        /* Table styles for help modal */
+        .help-table { width: 100%; text-align: left; border-collapse: collapse; font-size: 0.75rem; }
+        .help-table th { background-color: #f9fafb; padding: 8px; border-bottom: 2px solid #e5e7eb; font-weight: bold; color: #4b5563; }
+        .help-table td { padding: 8px; border-bottom: 1px solid #f3f4f6; color: #374151; vertical-align: top; }
+        .help-table tr:last-child td { border-bottom: none; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+    <div class="app-header-bg pt-12 pb-6 px-4 rounded-b-[2rem] shadow-sm border-b border-white relative z-20">
+        <div class="container mx-auto max-w-xl relative">
+            
+            <button onclick="UI.openHelp()" class="absolute top-0 left-2 text-2xl hover:opacity-70 transition z-30 filter drop-shadow-sm p-2" aria-label="ヘルプ">
+               ❓
+            </button>
+
+            <button onclick="UI.openSettings()" class="absolute top-0 right-2 text-2xl hover:opacity-70 transition z-30 filter drop-shadow-sm p-2" aria-label="設定">
+               ⚙️
+            </button>
+
+            <div class="flex flex-col items-center justify-center">
+                <div class="flex items-center justify-center gap-2 mb-1">
+                    <span class="text-3xl filter drop-shadow-md">🍺</span>
+                    <h1 class="text-3xl font-black tracking-tighter text-gray-800">
+                        ノム<span class="text-orange-500">トレ</span>
+                    </h1>
+                    <span class="text-3xl filter drop-shadow-md">🏃‍♀️</span>
+                </div>
+                <div class="flex items-center justify-center gap-2 opacity-60">
+                    <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">Local Storage</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v9.2</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 max-w-xl relative">
+        <div id="message-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 p-3 text-white rounded-lg shadow-lg hidden z-[100] text-center font-bold text-sm w-11/12 max-w-sm transition-all"></div>
+
+        <div id="tab-home" class="tab-content active">
+            <h2 class="text-xl font-black text-gray-800 mb-4 px-2 flex items-center gap-2">🍺 現在の状況</h2>
+            
+            <div class="flex justify-center mb-6">
+                <div class="bg-gray-100 p-1 rounded-lg flex gap-1">
+                    <button onclick="setBeerMode('mode1')" id="btn-mode-1" class="px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white">Loading...</button>
+                    <button onclick="setBeerMode('mode2')" id="btn-mode-2" class="px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white">Loading...</button>
+                </div>
+            </div>
+
+            <div class="flex justify-center items-center gap-12 mb-8 px-2">
+                <div class="glass-container">
+                    <div class="glass-handle"></div>
+                    <div class="glass-body bg-gray-100">
+                        <div id="tank-liquid" class="liquid mode1" style="height: 0%;">
+                            <div class="wave-surface"></div>
+                        </div>
+                        <div id="tank-empty-icon" class="absolute inset-0 flex items-center justify-center text-4xl opacity-0 transition-opacity duration-500">💔</div>
+                    </div>
+                </div>
+                <div class="text-left w-32 flex-shrink-0">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">DRINKABLE</p>
+                    <div class="flex items-baseline">
+                        <p id="tank-cans" class="text-4xl font-black text-gray-800 leading-none">0.0</p>
+                        <span class="text-xs font-bold text-gray-500 ml-1">本分</span>
+                    </div>
+                    <p class="text-xs font-bold text-indigo-600 mb-3">飲める！</p>
+                    <div class="border-t border-gray-200 pt-2">
+                        <p class="text-[10px] text-gray-400 font-bold">SAVINGS</p>
+                        <p id="tank-minutes" class="text-sm font-bold text-gray-600">+0 min</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="tank-message" class="text-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100 mx-2">
+                <p class="text-sm font-bold text-gray-700">さあ、運動して満タンにしよう！</p>
+            </div>
+            <div id="check-status" class="mt-6 mx-2"></div>
+            <div class="h-12"></div>
+        </div>
+
+        <div id="tab-record" class="tab-content">
+            <h2 class="text-xl font-black text-gray-800 mb-4 px-2 flex items-center gap-2">🏃‍♀️ 運動を記録</h2>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-6 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-2 h-full bg-green-500"></div>
+                <div class="mb-4">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">EXERCISE MENU</label>
+                    <select id="exercise-select" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 font-bold focus:ring-2 focus:ring-green-500 outline-none"></select>
+                </div>
+                <div class="text-center mb-6">
+                    <div id="timer-display" class="text-6xl font-mono font-bold text-gray-700 tracking-tighter tabular-nums">00:00</div>
+                    <p id="timer-status" class="text-xs text-gray-400 mt-1 font-medium">READY</p>
+                </div>
+                <div class="flex justify-center w-full gap-3">
+                    <button id="start-stepper-btn" onclick="timerControl.start()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-green-200 shadow-lg transition transform active:scale-95 text-lg">START</button>
+                    <button id="manual-record-btn" onclick="UI.openManualInput()" class="flex-1 bg-white border-2 border-green-500 text-green-600 font-bold py-3.5 rounded-xl shadow-sm transition transform active:scale-95 text-lg">手入力</button>
+                    <button id="stop-stepper-btn" onclick="timerControl.stop()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-red-200 shadow-lg transition transform active:scale-95 hidden text-lg animate-pulse">STOP & SAVE</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <button onclick="toggleModal('beer-modal', true)" class="bg-white border border-gray-100 text-gray-700 font-bold py-4 rounded-2xl shadow-sm transition transform active:scale-95 flex flex-col items-center justify-center hover:bg-gray-50">
+                    <span class="text-3xl mb-1">🍺</span><span class="text-xs text-gray-400 font-bold mt-1">RECORD DEBT</span><span class="text-sm">飲酒を記録</span>
+                </button>
+                <button onclick="UI.openCheckModal()" class="bg-white border border-gray-100 text-gray-700 font-bold py-4 rounded-2xl shadow-sm transition transform active:scale-95 flex flex-col items-center justify-center hover:bg-gray-50">
+                    <span class="text-3xl mb-1">✅</span><span class="text-xs text-gray-400 font-bold mt-1">DAILY CHECK</span><span class="text-sm">健康チェック</span>
+                </button>
+            </div>
+            <div class="h-12"></div>
+        </div>
+
+        <div id="tab-history" class="tab-content">
+            <h2 class="text-xl font-black text-gray-800 mb-4 px-2 flex items-center gap-2">📊 活動の履歴</h2>
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-6">
+                <h2 class="text-xs font-bold text-gray-400 mb-4 uppercase tracking-wide flex items-center gap-1">
+                    <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Balance Trend
+                </h2>
+                <div class="relative h-64 w-full"><canvas id="balanceChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
+                <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center">
+                    <span class="text-xl mr-2">📜</span> 最近の履歴
+                    <span id="history-base-label" class="ml-2 text-xs font-normal text-gray-400"></span>
+                </h2>
+                <div id="log-container" class="log-container max-h-80 overflow-y-auto pr-1"><div id="log-list" class="divide-y divide-gray-50"></div></div>
+            </div>
+            <div class="p-6 rounded-3xl border-2 border-dashed border-gray-200 text-center mb-8">
+                <p class="text-[10px] text-gray-400 mb-4 font-bold tracking-widest">DATA MANAGEMENT</p>
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-center space-x-3">
+                        <button onclick="DataManager.exportCSV('logs')" class="text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-100 flex items-center gap-1 transition w-full justify-center">📊 飲酒ログCSV</button>
+                        <button onclick="DataManager.exportCSV('checks')" class="text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-100 flex items-center gap-1 transition w-full justify-center">📊 健康チェックCSV</button>
+                    </div>
+                    <div class="flex justify-center space-x-4 pt-2 border-t border-gray-100 mt-2">
+                        <button onclick="DataManager.copyToClipboard()" class="text-gray-500 text-xs font-bold hover:text-gray-700 flex items-center gap-1 transition">📋 コピー</button>
+                        <button onclick="DataManager.exportJSON()" class="text-gray-500 text-xs font-bold hover:text-gray-700 flex items-center gap-1 transition">📥 DL保存</button>
+                        <label class="text-gray-500 text-xs font-bold hover:text-gray-700 flex items-center gap-1 cursor-pointer transition">⬆️ 復元<input type="file" accept=".json" class="hidden" onchange="DataManager.importJSON(this)"></label>
+                    </div>
+                </div>
+            </div>
+            <div class="h-20"></div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="fixed bottom-0 w-full bg-white border-t border-gray-200 pb-safe z-50">
+        <div class="container mx-auto max-w-xl flex justify-around items-center h-16 px-2">
+            <button onclick="switchTab('tab-home')" id="nav-tab-home" class="nav-item flex flex-col items-center justify-center w-full h-full text-indigo-600 active:scale-95 transition"><span class="text-2xl mb-0.5">🏠</span><span class="text-[10px] font-bold">ホーム</span></button>
+            <button onclick="switchTab('tab-record')" id="nav-tab-record" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 active:scale-95 transition"><span class="text-2xl mb-0.5">⏱️</span><span class="text-[10px] font-bold">記録</span></button>
+            <button onclick="switchTab('tab-history')" id="nav-tab-history" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 active:scale-95 transition"><span class="text-2xl mb-0.5">📊</span><span class="text-[10px] font-bold">履歴</span></button>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="manual-exercise-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-800">🏃‍♀️ 運動手入力</h3>
+                <button onclick="toggleModal('manual-exercise-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-2 font-bold" id="manual-exercise-name">運動名</p>
+            <div class="flex items-center mb-8">
+                <input type="number" id="manual-minutes" placeholder="30" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-gray-800 text-center font-bold text-3xl">
+                <span class="ml-2 font-bold text-gray-500">分</span>
+            </div>
+            <button onclick="handleManualExerciseSubmit()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-200 transition transform active:scale-95">記録する</button>
+        </div>
+    </div>
+
+    <div id="beer-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-800">🍺 飲酒記録 (借金)</h3>
+                <button onclick="toggleModal('beer-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+<form id="beer-form" onsubmit="event.preventDefault(); handleBeerSubmit();">
+    <div class="space-y-5 mb-8">
+        <div>
+            <div class="flex justify-between items-end mb-1.5">
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wide">Beer Style</label>
+                <span class="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded" id="beer-select-mode-label"></span>
+            </div>
+            <select id="beer-select" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+            <input type="text" id="beer-brewery" placeholder="ブルワリー名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+            <input type="text" id="beer-brand" placeholder="銘柄名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+        </div>
+
+        <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 space-y-3">
+            <div class="flex items-center gap-2">
+                <label class="text-xs font-bold text-yellow-600 uppercase">Rating</label>
+                <select id="beer-rating" class="p-1 bg-white border border-yellow-200 rounded text-sm font-bold text-yellow-600 outline-none">
+                    <option value="0">評価なし</option>
+                    <option value="1">★☆☆☆☆</option>
+                    <option value="2">★★☆☆☆</option>
+                    <option value="3">★★★☆☆</option>
+                    <option value="4">★★★★☆</option>
+                    <option value="5">★★★★★</option>
+                </select>
+            </div>
+            <textarea id="beer-memo" rows="2" placeholder="味の感想やメモ..." class="w-full p-2.5 bg-white border border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none text-sm resize-none"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
+                <select id="beer-size" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
+                <input type="number" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
+            </div>
+        </div>
+        
+        <div class="flex items-center justify-center pt-2">
+            <label class="flex items-center space-x-2 cursor-pointer group">
+                <input type="checkbox" id="untappd-check" class="w-5 h-5 text-yellow-500 rounded border-gray-300 focus:ring-yellow-500">
+                <span class="text-xs font-bold text-gray-400 group-hover:text-yellow-600 transition">Untappdで検索して記録する</span>
+            </label>
+        </div>
+    </div>
+    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">記録する</button>
+</form>
+        </div>
+    </div>
+
+    <div id="check-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-gray-800">✅ デイリーチェック</h3>
+                <button onclick="toggleModal('check-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <p class="text-xs text-gray-400 mb-6 font-medium">コンディションと対策を振り返り</p>
+            <form id="check-form" onsubmit="event.preventDefault(); handleCheckSubmit();">
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <label for="record-as-yesterday" class="text-gray-600 font-bold text-xs flex-grow cursor-pointer">📅 昨日の分として記録する</label>
+                        <input type="checkbox" id="record-as-yesterday" class="h-5 w-5 text-gray-500 rounded focus:ring-gray-400 border-gray-300">
+                    </div>
+                    <div class="flex items-center justify-between p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
+                        <span class="text-blue-800 font-bold text-sm">🍵 昨日は休肝日 (飲んでいない)</span>
+                        <input type="checkbox" id="is-dry-day" class="h-6 w-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300" onchange="UI.toggleDryDay(this)">
+                    </div>
+                    <div id="drinking-section" class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 accordion-content">
+                        <h4 class="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3">🛡️ 対策 (飲む前・飲酒中)</h4>
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-indigo-100 hover:border-indigo-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">🥗 飲酒前の食物繊維</span><input type="checkbox" name="fiberOk" class="h-5 w-5 text-indigo-600 rounded"></label>
+                            <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-indigo-100 hover:border-indigo-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">💧 飲酒中/後の水分補給</span><input type="checkbox" name="waterOk" class="h-5 w-5 text-indigo-600 rounded"></label>
+                        </div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                        <h4 class="text-xs font-bold text-green-600 uppercase tracking-wider mb-3">🧘 コンディション (翌日・日中)</h4>
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-green-100 hover:border-green-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">👖 ウエストに余裕あり</span><input type="checkbox" name="waistEase" class="h-5 w-5 text-green-600 rounded"></label>
+                            <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-green-100 hover:border-green-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">🦶 足が軽い・むくみなし</span><input type="checkbox" name="footLightness" class="h-5 w-5 text-green-600 rounded"></label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">完了</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-800">⚙️ 設定</h3>
+                <button onclick="toggleModal('settings-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">プロフィール (消費カロリー計算用)</label>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">身長 (cm)</label>
+                            <input type="number" id="height-input" min="100" max="250" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">体重 (kg)</label>
+                            <input type="number" id="weight-input" min="20" max="200" step="0.1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">年齢 (歳)</label>
+                            <input type="number" id="age-input" min="10" max="100" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">性別</label>
+                            <select id="gender-input" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold">
+                                <option value="male">男性</option>
+                                <option value="female">女性</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">換算モード設定</label>
+                    <div class="grid gap-3">
+                        <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                            <label class="block text-[10px] font-bold text-indigo-600 mb-1">時間換算の基準 (SAVINGS等)</label>
+                            <select id="setting-base-exercise" class="w-full p-2 bg-white border border-indigo-200 rounded-lg text-sm font-bold text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg border border-gray-200">
+                            <label class="block text-[10px] font-bold text-indigo-500 mb-1">左ボタン (標準)</label>
+                            <select id="setting-mode-1" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm font-bold"></select>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg border border-gray-200">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1">右ボタン (比較)</label>
+                            <select id="setting-mode-2" class="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm font-bold"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="saveSettings()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 mt-6">保存する</button>
+        </div>
+    </div>
+    
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center p-6 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800">📖 使い方ガイド</h3>
+                <button onclick="toggleModal('help-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-6">
+                <!-- Guide Content -->
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">🚀 コンセプト</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed mb-2">
+                        **「飲んだら動く」**。飲酒は「借金」、運動は「返済」。<br>
+                        基礎代謝に基づき、飲んだビール分を運動でチャラにする健康管理アプリです。
+                    </p>
+                </section>
+                
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">⚙️ STEP 1: 設定</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        右上の歯車ボタンで身長・体重などを入力してください。<br>
+                        正確なカロリー計算のために必須です。
+                    </p>
+                </section>
+                
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">🍺 STEP 2: 借金 (飲酒記録)</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        「記録」タブの「飲酒を記録」から入力します。<br>
+                        ホーム画面のグラスが減り、運動が必要な時間が表示されます。
+                    </p>
+                </section>
+                
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">🏃‍♀️ STEP 3: 返済 (運動)</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        「記録」タブで「START」を押し、運動後に「STOP」で記録。<br>
+                        手入力も可能です。運動するとグラスにビールが戻ります。
+                    </p>
+                </section>
+
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">📋 付録：ビール以外のお酒 換算表</h4>
+                    <p class="text-xs text-gray-500 mb-2">ビール以外の飲み物を記録する際の目安設定です。</p>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="help-table">
+                            <thead>
+                                <tr>
+                                    <th>飲み物</th>
+                                    <th>設定 (スタイル/サイズ)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>🍷 赤/白ワイン</td>
+                                    <td>ベルジャン・トリペル<br><span class="text-xs text-gray-400">サイズ: 250ml</span></td>
+                                </tr>
+                                <tr>
+                                    <td>🥃 ハイボール (7%)</td>
+                                    <td>アンバーエール</td>
+                                </tr>
+                                <tr>
+                                    <td>🍋 レモンサワー</td>
+                                    <td>ペールエール</td>
+                                </tr>
+                                <tr>
+                                    <td>🍶 日本酒 (1合)</td>
+                                    <td>ダブルIPA<br><span class="text-xs text-gray-400">サイズ: 250ml</span></td>
+                                </tr>
+                                <tr>
+                                    <td>🥤 ストロング系 (9%)</td>
+                                    <td>IPA (West Coast)</td>
+                                </tr>
+                                <tr>
+                                    <td>🍵 焼酎ハイ/お茶割</td>
+                                    <td>セッションIPA</td>
+                                </tr>
+                                <tr>
+                                    <td>🥃 梅酒ロック</td>
+                                    <td>大手ラガー<br><span class="text-xs text-gray-400">サイズ: 350ml / 本数: 1</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+            <div class="p-4 border-t border-gray-100 bg-gray-50 rounded-b-3xl">
+                <button onclick="toggleModal('help-modal', false)" class="w-full bg-gray-800 text-white font-bold py-3 rounded-xl shadow-md text-sm">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+        const APP = {
+            STORAGE_KEYS: {
+                LOGS: 'hazy_payback_logs', 
+                CHECKS: 'hazy_payback_checks', 
+                WEIGHT: 'hazy_payback_weight', 
+                HEIGHT: 'hazy_payback_height', 
+                AGE: 'hazy_payback_age', 
+                GENDER: 'hazy_payback_gender', 
+                TIMER_START: 'hazy_payback_timer_start', 
+                MODE1: 'hazy_payback_mode_1', 
+                MODE2: 'hazy_payback_mode_2',
+                BASE_EXERCISE: 'hazy_payback_base_exercise' // New key for base exercise preference
+            },
+            DEFAULTS: { 
+                WEIGHT: 70, HEIGHT: 170, AGE: 30, GENDER: 'male', 
+                MODE1: '大手ラガー', MODE2: 'Hazy IPA',
+                BASE_EXERCISE: 'stepper' // Default calculation base
+            },
+            TANK_MAX_CANS: 3.0
+        };
+        // ★追加: Untappd連携用ユーティリティ
+const ExternalApp = {
+    searchUntappd: (term) => {
+        const query = encodeURIComponent(term);
+        const appUrl = `untappd://beer/search?q=${query}`;
+        const webUrl = `https://untappd.com/search?q=${query}`;
+        
+        // スマホでのアプリ起動を試みる
+        window.location.href = appUrl;
+        
+        // アプリがない、またはPCの場合はWebへ（少し遅らせて実行）
+        setTimeout(() => {
+            // アプリが起動した場合はここは実行されない（ことが多い）が、
+            // 確実ではないため、別タブで開くのが安全
+            if (!document.hidden) {
+                window.open(webUrl, '_blank');
+            }
+        }, 1000);
+    }
+};
+
+        const CALORIES = { STYLES: { 'バーレイワイン': 320, 'ダブルIPA (DIPA)': 270, 'ベルジャン・トリペル': 250, 'Hazy IPA': 220, 'スタウト': 200, 'IPA (West Coast)': 190, 'ヴァイツェン': 180, 'アンバーエール': 175, 'ポーター': 170, 'Hazyペールエール': 170, 'セゾン': 165, 'ベルジャンホワイト': 160, 'ペールエール': 160, 'ジャパニーズエール': 160, 'シュバルツ': 155, '大手ラガー': 145, 'ドルトムンター': 145, 'ピルスナー': 140, 'サワーエール': 140, 'フルーツビール': 160, 'セッションIPA': 130, '糖質オフ/第三のビール': 110 } };
+        const EXERCISE = { 'stepper': { label: 'ステッパー', mets: 6.0, icon: '🏃‍♀️' }, 'walking': { label: 'ウォーキング (通勤等)', mets: 3.5, icon: '🚶' }, 'brisk_walking': { label: '早歩き', mets: 4.5, icon: '👟' }, 'cycling': { label: '自転車 (ゆっくり)', mets: 4.0, icon: '🚲' }, 'training': { label: '筋トレ (パーソナル等)', mets: 5.0, icon: '🏋️' }, 'running': { label: 'ランニング', mets: 7.0, icon: '💨' }, 'hiit': { label: 'HIIT (高強度)', mets: 8.0, icon: '🔥' }, 'yoga': { label: 'ヨガ (ストレッチ)', mets: 2.5, icon: '🧘' }, 'cleaning': { label: '部屋の掃除', mets: 3.0, icon: '🧹' } };
+        const SIZE_DATA = { '350': { label: '350ml (缶)', ratio: 1.0 }, '500': { label: '500ml (ロング缶)', ratio: 1.43 }, '473': { label: '473ml (USパイント)', ratio: 1.35 }, '568': { label: '568ml (UKパイント)', ratio: 1.62 }, '250': { label: '250ml (小グラス)', ratio: 0.71 }, '1000': { label: '1L (マース)', ratio: 2.86 } };
+
+        // Store: add try/catch for read
+        const Store = {
+            get: (key) => {
+                try {
+                    const d = localStorage.getItem(key);
+                    return d ? JSON.parse(d) : [];
+                } catch (error) {
+                    console.error('Storage read error:', error);
+                    return [];
+                }
+            },
+            set: (key, val) => {
+                try {
+                    localStorage.setItem(key, JSON.stringify(val));
+                } catch (err) {
+                    console.error('Storage write error:', err);
+                }
+            },
+            getProfile: () => ({
+                weight: parseFloat(localStorage.getItem(APP.STORAGE_KEYS.WEIGHT)) || APP.DEFAULTS.WEIGHT,
+                height: parseFloat(localStorage.getItem(APP.STORAGE_KEYS.HEIGHT)) || APP.DEFAULTS.HEIGHT,
+                age: parseInt(localStorage.getItem(APP.STORAGE_KEYS.AGE)) || APP.DEFAULTS.AGE,
+                gender: localStorage.getItem(APP.STORAGE_KEYS.GENDER) || APP.DEFAULTS.GENDER
+            }),
+            getModes: () => ({
+                mode1: localStorage.getItem(APP.STORAGE_KEYS.MODE1) || APP.DEFAULTS.MODE1,
+                mode2: localStorage.getItem(APP.STORAGE_KEYS.MODE2) || APP.DEFAULTS.MODE2
+            }),
+            getBaseExercise: () => localStorage.getItem(APP.STORAGE_KEYS.BASE_EXERCISE) || APP.DEFAULTS.BASE_EXERCISE
+        };
+
+        const Calc = {
+            // Ganpule Equation
+            getBMR: () => {
+                const p = Store.getProfile();
+                const k = 1000 / 4.186; // MJ to kcal
+                if(p.gender === 'male') {
+                    return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.4235) * k;
+                } else {
+                    return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.9708) * k;
+                }
+            },
+            // Net Consumption (METs - 1)
+            burnRate: (mets) => {
+                const bmr = Calc.getBMR();
+                const netMets = Math.max(0, mets - 1); // Subtract resting metabolism
+                return (bmr / 24 * netMets) / 60;
+            },
+            stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
+            isSameDay: (ts1, ts2) => { const d1 = new Date(ts1), d2 = new Date(ts2); return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); },
+            hasAlcoholLog: (timestamp) => Store.get(APP.STORAGE_KEYS.LOGS).some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp))
+        };
+
+        let currentState = { beerMode: 'mode1', chart: null, timerId: null };
+
+        const UI = {
+            showMessage: (msg, type) => {
+                const mb = document.getElementById('message-box');
+                mb.textContent = msg; mb.className = `fixed top-4 left-1/2 transform -translate-x-1/2 p-3 text-white rounded-lg shadow-lg z-[100] text-center font-bold text-sm w-11/12 max-w-sm transition-all ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+                mb.classList.remove('hidden'); setTimeout(() => mb.classList.add('hidden'), 3000);
+            },
+            toggleDryDay: (cb) => document.getElementById('drinking-section').classList.toggle('hidden-area', cb.checked),
+            openCheckModal: () => { document.getElementById('record-as-yesterday').checked = (new Date().getHours() < 12); toggleModal('check-modal', true); },
+            openManualInput: () => { document.getElementById('manual-exercise-name').textContent = EXERCISE[document.getElementById('exercise-select').value].label; toggleModal('manual-exercise-modal', true); },
+            openSettings: () => {
+                const p = Store.getProfile();
+                document.getElementById('weight-input').value = p.weight;
+                document.getElementById('height-input').value = p.height;
+                document.getElementById('age-input').value = p.age;
+                document.getElementById('gender-input').value = p.gender;
+                
+                const modes = Store.getModes();
+                document.getElementById('setting-mode-1').value = modes.mode1;
+                document.getElementById('setting-mode-2').value = modes.mode2;
+                document.getElementById('setting-base-exercise').value = Store.getBaseExercise();
+                toggleModal('settings-modal', true);
+            },
+            updateModeButtons: () => {
+                const modes = Store.getModes();
+                document.getElementById('btn-mode-1').textContent = `🍺 ${modes.mode1}換算`;
+                document.getElementById('btn-mode-2').textContent = `🍺🍺 ${modes.mode2}換算`;
+            },
+            openHelp: () => {
+                toggleModal('help-modal', true);
+            }
+        };
+
+        window.toggleModal = (id, show) => { document.getElementById(id).style.display = show ? 'block' : 'none'; };
+
+        // Helper functions
+        function updateBeerSelectOptions() { 
+            const s = document.getElementById('beer-select'); 
+            const baseEx = Store.getBaseExercise();
+            const exData = EXERCISE[baseEx] || EXERCISE['stepper'];
+            
+            s.innerHTML = '<option value="">選択してください</option>'; 
+            // Calculate rate based on user's selected base exercise (not hardcoded stepper)
+            const r = Calc.burnRate(exData.mets); 
+            
+            // Update label in modal to show which exercise is being used
+            const labelEl = document.getElementById('beer-select-mode-label');
+            if (labelEl) labelEl.textContent = `${exData.icon} ${exData.label} 換算`;
+
+            Object.keys(CALORIES.STYLES).forEach(k => { 
+                const o = document.createElement('option'); 
+                o.value = k; 
+                o.textContent = `${k} (${Math.round(CALORIES.STYLES[k]/r)}分)`; 
+                s.appendChild(o); 
+            }); 
+            
+            // Populate setting modes (these remain the same list of beers)
+            const m1 = document.getElementById('setting-mode-1'); m1.innerHTML = '';
+            const m2 = document.getElementById('setting-mode-2'); m2.innerHTML = '';
+            Object.keys(CALORIES.STYLES).forEach(k => {
+                const o1 = document.createElement('option'); o1.value = k; o1.textContent = k; m1.appendChild(o1);
+                const o2 = document.createElement('option'); o2.value = k; o2.textContent = k; m2.appendChild(o2);
+            });
+        }
+
+        function initExerciseSelect() { 
+            // Main record tab exercise select
+            const s = document.getElementById('exercise-select'); 
+            Object.keys(EXERCISE).forEach(k => { 
+                const o = document.createElement('option'); 
+                o.value = k; 
+                o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; 
+                s.appendChild(o); 
+            }); 
+
+            // Settings base exercise select
+            const sb = document.getElementById('setting-base-exercise');
+            sb.innerHTML = '';
+            Object.keys(EXERCISE).forEach(k => {
+                const o = document.createElement('option');
+                o.value = k;
+                o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`;
+                sb.appendChild(o);
+            });
+        }
+
+        function refreshUI() {
+            const logs = Store.get(APP.STORAGE_KEYS.LOGS);
+            renderLogList(logs);
+            renderBeerTank(logs);
+            renderCheckStatus();
+            if(document.getElementById('tab-history').classList.contains('active')) renderChart(logs);
+        }
+
+        function renderLogList(logs) {
+            logs.sort((a, b) => b.timestamp - a.timestamp);
+            const list = document.getElementById('log-list');
+            if (logs.length === 0) { list.innerHTML = '<p class="text-gray-500 p-4 text-center">まだ記録がありません。</p>'; return; }
+            
+            // Get User Preferred Base Exercise for Display
+            const baseEx = Store.getBaseExercise();
+            const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
+            const displayRate = Calc.burnRate(baseExData.mets);
+            const stepperRate = Calc.burnRate(EXERCISE['stepper'].mets);
+
+            // Update label
+            document.getElementById('history-base-label').textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
+
+list.innerHTML = logs.map(log => {
+                const isDebt = log.minutes < 0;
+                const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
+                const signClass = isDebt ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
+                const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                
+                // ★修正: 詳細表示の拡張（ブルワリー、評価、メモを表示）
+                let detailHtml = '';
+                
+                // 銘柄情報
+                if (log.brewery || log.brand) {
+                    detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${log.brewery||''}</span> <span class="text-gray-600">${log.brand||''}</span></p>`;
+                }
+                
+                // 評価とメモがある場合（借金ログのみ）
+                if (log.minutes < 0 && (log.rating > 0 || log.memo)) {
+                    const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
+                    const ratingDisplay = log.rating > 0 ? `<span class="text-yellow-500 text-[10px] mr-2">${stars}</span>` : '';
+                    const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${log.memo}"</span>` : '';
+                    
+                    detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
+                }
+
+                // Convert stored stepper minutes to Kcal then to preferred exercise minutes
+                const kcal = Math.abs(log.minutes) * stepperRate;
+                const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
+
+                return `<div class="flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50 group">
+                            <div class="flex-grow min-w-0 pr-2">
+                                <p class="font-semibold text-sm text-gray-800 truncate">${log.name}</p>
+                                ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <span class="px-2 py-1 rounded-full text-xs font-bold ${signClass} whitespace-nowrap">${typeText} ${displayMinutes}分</span>
+                                <button onclick="deleteLog(${log.timestamp})" class="text-gray-300 hover:text-red-500 p-1 font-bold px-2">×</button>
+                            </div>
+                        </div>`;
+            }).join('');
+        }
+
+        function renderBeerTank(logs) {
+            const totalBalance = logs.reduce((sum, log) => sum + log.minutes, 0);
+            const modes = Store.getModes();
+            const targetStyle = currentState.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
+            const unitKcal = CALORIES.STYLES[targetStyle] || 145;
+            
+            // totalBalance is in Stepper Minutes (always). Convert to Kcal.
+            const totalKcal = totalBalance * Calc.burnRate(EXERCISE['stepper'].mets);
+            
+            // Calculate can count
+            const canCount = parseFloat((totalKcal / unitKcal).toFixed(1));
+
+            // Get User Preferred Base Exercise for Display
+            const baseEx = Store.getBaseExercise();
+            const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
+            const displayRate = Calc.burnRate(baseExData.mets);
+            const displayMinutes = totalKcal / displayRate;
+
+            const liquid = document.getElementById('tank-liquid');
+            const emptyIcon = document.getElementById('tank-empty-icon');
+            const cansText = document.getElementById('tank-cans');
+            const minText = document.getElementById('tank-minutes');
+            const msgText = document.querySelector('#tank-message p');
+
+            if (totalBalance > 0) {
+                emptyIcon.style.opacity = '0';
+                let h = (canCount / APP.TANK_MAX_CANS) * 100;
+                liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
+                cansText.textContent = canCount.toFixed(1);
+                
+                // Show minutes converted to user's preferred exercise
+                minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
+                
+                if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500'; }
+                else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500'; }
+                else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600'; }
+                else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800'; }
+            } else {
+                liquid.style.height = '0%';
+                emptyIcon.style.opacity = '1';
+                cansText.textContent = "0.0";
+                
+                // Show debt minutes converted to user's preferred exercise
+                minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
+                minText.className = 'text-sm font-bold text-red-500';
+                
+                const debtCans = (Math.abs(totalKcal) / unitKcal).toFixed(1);
+                msgText.textContent = `枯渇中... あと${debtCans}本分動こう😱`;
+                msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
+            }
+        }
+
+        function renderCheckStatus() {
+            const checks = Store.get(APP.STORAGE_KEYS.CHECKS).sort((a,b)=>b.timestamp-a.timestamp);
+            const status = document.getElementById('check-status');
+            const today = new Date(); const yest = new Date(new Date().setDate(today.getDate()-1));
+            let targetCheck = null; let type = 'none';
+
+            if (checks.length > 0) {
+                if (Calc.isSameDay(checks[0].timestamp, today)) { targetCheck = checks[0]; type = 'today'; }
+                else if (Calc.isSameDay(checks[0].timestamp, yest)) { targetCheck = checks[0]; type = 'yesterday'; }
+            }
+
+            if (type !== 'none') {
+                const msg = getCheckMessage(targetCheck);
+                const title = type === 'today' ? "Today's Condition" : "Yesterday's Check";
+                const style = type === 'today' ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-green-400 border-l-4";
+                status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800">${msg}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
+            } else {
+                const lastDate = checks.length > 0 ? new Date(checks[0].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
+                status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
+            }
+        }
+
+        function getCheckMessage(check) {
+            const drank = Calc.hasAlcoholLog(check.timestamp);
+            if (drank || !check.isDryDay) {
+                let s = 0; if (check.waistEase) s++; if (check.footLightness) s++; if (check.fiberOk) s++; if (check.waterOk) s++;
+                if (s === 4) return '代謝絶好調！😆'; if (s >= 1) return `${s}/4 クリア 😐`; return '不調気味... 😰';
+            } else { return (check.waistEase && check.footLightness) ? '休肝日＋絶好調！✨' : '休肝日 (体調イマイチ)🍵'; }
+        }
+
+        function renderChart(logs) {
+            const ctxCanvas = document.getElementById('balanceChart');
+            if (!ctxCanvas || typeof Chart === 'undefined') return;
+            try {
+                const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+                const dailyData = new Map();
+                let currentBalance = 0;
+                if (sortedLogs.length === 0) { const t = new Date(); dailyData.set(`${t.getMonth()+1}/${t.getDate()}`, {plus:0, minus:0, bal:0}); } 
+                else {
+                    sortedLogs.forEach(l => {
+                        const d = new Date(l.timestamp); const k = `${d.getMonth()+1}/${d.getDate()}`;
+                        if (!dailyData.has(k)) dailyData.set(k, {plus:0, minus:0, bal:0});
+                        const e = dailyData.get(k);
+                        if (l.minutes >= 0) e.plus += l.minutes; else e.minus += l.minutes;
+                        currentBalance += l.minutes; e.bal = currentBalance;
+                    });
+                }
+                const labels = [], plus = [], minus = [], bal = [];
+                dailyData.forEach((v, k) => { labels.push(k); plus.push(v.plus); minus.push(v.minus); bal.push(v.bal); });
+                if (currentState.chart) currentState.chart.destroy();
+                currentState.chart = new Chart(ctxCanvas.getContext('2d'), {
+                    type: 'bar',
+                    data: { labels: labels, datasets: [ { type: 'line', label: '累積残高', data: bal, borderColor: '#4F46E5', borderWidth: 2, tension: 0.3, pointRadius: 1, fill: false, order: 0 }, { type: 'bar', label: '返済', data: plus, backgroundColor: '#10B981', borderRadius: 4, stack: '0', order: 1 }, { type: 'bar', label: '借金', data: minus, backgroundColor: '#EF4444', borderRadius: 4, stack: '0', order: 1 } ] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, display: false }, y: { stacked: false, beginAtZero: true } }, plugins: { legend: { display: true, position: 'bottom' } } }
+                });
+            } catch(e) { console.error('Chart Error', e); }
+        }
+
+        /* --- 4. EVENT HANDLERS --- */
+        function switchTab(tabId) {
+            // Guard clause: if tabId is missing or elements don't exist, exit
+            if (!tabId) return;
+            const targetTab = document.getElementById(tabId);
+            const targetNav = document.getElementById(`nav-${tabId}`);
+            if (!targetTab || !targetNav) return;
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            targetTab.classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('text-indigo-600'); el.classList.add('text-gray-400'); });
+            targetNav.classList.remove('text-gray-400');
+            targetNav.classList.add('text-indigo-600');
+            
+            if (tabId === 'tab-history') setTimeout(() => renderChart(Store.get(APP.STORAGE_KEYS.LOGS)), 50);
+        }
+
+        function setBeerMode(mode) {
+            currentState.beerMode = mode;
+            const lBtn = document.getElementById('btn-mode-1'), hBtn = document.getElementById('btn-mode-2'), liq = document.getElementById('tank-liquid');
+            if (mode === 'mode1') {
+                lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white";
+                hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white";
+                liq.classList.remove('mode2'); liq.classList.add('mode1');
+            } else {
+                hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white";
+                lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white";
+                liq.classList.remove('mode1'); liq.classList.add('mode2');
+            }
+            refreshUI();
+        }
+
+        function saveSettings() {
+            const w = parseFloat(document.getElementById('weight-input').value);
+            const h = parseFloat(document.getElementById('height-input').value);
+            const a = parseInt(document.getElementById('age-input').value);
+            const g = document.getElementById('gender-input').value;
+            const m1 = document.getElementById('setting-mode-1').value;
+            const m2 = document.getElementById('setting-mode-2').value;
+            const be = document.getElementById('setting-base-exercise').value;
+            
+            if (w && h && a && m1 && m2 && be) {
+                localStorage.setItem(APP.STORAGE_KEYS.WEIGHT, w);
+                localStorage.setItem(APP.STORAGE_KEYS.HEIGHT, h);
+                localStorage.setItem(APP.STORAGE_KEYS.AGE, a);
+                localStorage.setItem(APP.STORAGE_KEYS.GENDER, g);
+                localStorage.setItem(APP.STORAGE_KEYS.MODE1, m1);
+                localStorage.setItem(APP.STORAGE_KEYS.MODE2, m2);
+                localStorage.setItem(APP.STORAGE_KEYS.BASE_EXERCISE, be);
+                toggleModal('settings-modal', false);
+                UI.updateModeButtons();
+                refreshUI();
+                updateBeerSelectOptions(); 
+                UI.showMessage('設定を保存しました', 'success');
+            } else {
+                UI.showMessage('すべての項目を入力してください', 'error');
+            }
+        }
+
+/* --- handleBeerSubmit 関数を上書きしてください --- */
+
+function handleBeerSubmit() {
+    const s = document.getElementById('beer-select').value;
+    const z = document.getElementById('beer-size').value;
+    const c = parseFloat(document.getElementById('beer-count').value);
+    
+    // 追加フィールドの取得
+    const brewery = document.getElementById('beer-brewery').value;
+    const brand = document.getElementById('beer-brand').value;
+    const rating = parseInt(document.getElementById('beer-rating').value) || 0;
+    const memo = document.getElementById('beer-memo').value;
+    const useUntappd = document.getElementById('untappd-check').checked;
+
+    if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
+
+    const kcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
+    const min = kcal / Calc.burnRate(EXERCISE['stepper'].mets);
+    const logs = Store.get(APP.STORAGE_KEYS.LOGS);
+    
+    // ログオブジェクトの拡張（rating, memoを追加）
+    logs.push({ 
+        name: `${s} x${c}`, 
+        type: '借金', 
+        minutes: -Math.round(min), 
+        timestamp: Date.now(), 
+        brewery: brewery, 
+        brand: brand,
+        rating: rating, // ★New
+        memo: memo      // ★New
+    });
+    
+    Store.set(APP.STORAGE_KEYS.LOGS, logs); 
+    UI.showMessage('飲酒を記録しました 🍺', 'success'); 
+    toggleModal('beer-modal', false); 
+    refreshUI();
+
+    // 入力のリセット（次回のために）
+    document.getElementById('beer-brewery').value = '';
+    document.getElementById('beer-brand').value = '';
+    document.getElementById('beer-rating').value = '0';
+    document.getElementById('beer-memo').value = '';
+    document.getElementById('untappd-check').checked = false;
+
+    // ★Untappd連携ロジック
+    if (useUntappd) {
+        // 検索ワードの作成: "BreweryName BeerName" がヒットしやすい
+        let searchTerm = brand;
+        if (brewery) searchTerm = `${brewery} ${brand}`;
+        if (!searchTerm) searchTerm = s; // 名前がない場合はスタイルで検索
+        
+        ExternalApp.searchUntappd(searchTerm);
+    }
+}
+        function handleManualExerciseSubmit() { 
+            const m = parseFloat(document.getElementById('manual-minutes').value); 
+            if(!m) return UI.showMessage('時間を入力','error'); 
+            recordExercise(document.getElementById('exercise-select').value, m); 
+            document.getElementById('manual-minutes').value=''; 
+            toggleModal('manual-exercise-modal', false); 
+        }
+
+        function handleCheckSubmit() { 
+            const f=document.getElementById('check-form'), isDry=document.getElementById('is-dry-day').checked; 
+            let ts=Date.now(); 
+            if(document.getElementById('record-as-yesterday').checked) ts-=ONE_DAY_MS; 
+            const c=Store.get(APP.STORAGE_KEYS.CHECKS); 
+            c.push({isDryDay:isDry, waistEase:f.elements['waistEase'].checked, footLightness:f.elements['footLightness'].checked, waterOk:isDry?null:f.elements['waterOk'].checked, fiberOk:isDry?null:f.elements['fiberOk'].checked, timestamp:ts}); 
+            Store.set(APP.STORAGE_KEYS.CHECKS, c); UI.showMessage('チェック完了！','success'); toggleModal('check-modal', false); document.getElementById('is-dry-day').checked=false; document.getElementById('record-as-yesterday').checked=false; document.getElementById('drinking-section').classList.remove('hidden-area'); refreshUI(); 
+        }
+
+        // clearer deleteLog implementation
+        function deleteLog(timestamp) {
+            if (!confirm('削除しますか？')) return;
+            const logs = Store.get(APP.STORAGE_KEYS.LOGS);
+            const filteredLogs = logs.filter(log => log.timestamp !== timestamp);
+            Store.set(APP.STORAGE_KEYS.LOGS, filteredLogs);
+            UI.showMessage('削除しました', 'success');
+            refreshUI();
+        }
+
+        function recordExercise(t,m) { 
+            const i=EXERCISE[t], eq=Calc.stepperEq(Calc.burnRate(i.mets)*m), l=Store.get(APP.STORAGE_KEYS.LOGS); 
+            l.push({name:`${i.icon} ${i.label}`, type:'返済', minutes:Math.round(eq), rawMinutes:m, timestamp:Date.now()}); 
+            Store.set(APP.STORAGE_KEYS.LOGS, l); UI.showMessage(`${i.label} ${m}分 記録！`,'success'); refreshUI(); 
+        }
+
+const DataManager = {
+            exportCSV: (t) => { 
+                let d=[],c="",n=""; 
+                const e=(s)=>`"${String(s).replace(/"/g,'""')}"`; 
+                if(t==='logs'){ 
+                    d=Store.get(APP.STORAGE_KEYS.LOGS).sort((a,b)=>a.timestamp-b.timestamp); 
+                    // ★修正: ヘッダーに「評価,メモ」を追加し、データにも反映
+                    c="日時,内容,換算分(ステッパー基準),実運動時間(分),ブルワリー,銘柄,評価,メモ\n"+d.map(r=>{
+                        const rawMin = r.rawMinutes !== undefined ? r.rawMinutes : '-';
+                        // r.rating と r.memo を追加（存在しない場合は空文字や0）
+                        return `${new Date(r.timestamp).toLocaleString()},${e(r.name)},${r.minutes},${rawMin},${e(r.brewery)},${e(r.brand)},${r.rating || 0},${e(r.memo || '')}`;
+                    }).join('\n'); 
+                    n="beer-log"; 
+                } else { 
+                    d=Store.get(APP.STORAGE_KEYS.CHECKS).sort((a,b)=>a.timestamp-b.timestamp); 
+                    c="日時,休肝日\n"+d.map(r=>`${new Date(r.timestamp).toLocaleString()},${r.isDryDay}`).join('\n'); 
+                    n="check-log"; 
+                } 
+                DataManager.download(c, `nomutore-${n}.csv`, 'text/csv'); 
+            },
+            exportJSON: () => { DataManager.download(JSON.stringify({logs:Store.get(APP.STORAGE_KEYS.LOGS), checks:Store.get(APP.STORAGE_KEYS.CHECKS)},null,2), 'nomutore-backup.json', 'application/json'); },
+            copyToClipboard: () => { navigator.clipboard.writeText(JSON.stringify({logs:Store.get(APP.STORAGE_KEYS.LOGS), checks:Store.get(APP.STORAGE_KEYS.CHECKS)},null,2)).then(()=>UI.showMessage('コピーしました','success')); },
+            importJSON: (i) => { const f=i.files[0]; if(!f)return; const r=new FileReader(); r.onload=(e)=>{ try{ const d=JSON.parse(e.target.result); if(confirm('データを復元しますか？')){ Store.set(APP.STORAGE_KEYS.LOGS, d.logs||[]); Store.set(APP.STORAGE_KEYS.CHECKS, d.checks||[]); refreshUI(); UI.showMessage('復元しました','success'); } }catch(err){UI.showMessage('読込失敗','error');} i.value=''; }; r.readAsText(f); },
+            download: (d,n,t) => { const b=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),d],{type:t}), u=URL.createObjectURL(b), a=document.createElement('a'); a.href=u; a.download=n; a.click(); }
+        }; window.DataManager = DataManager;
+
+        // Timer
+        let ti=null;
+        const updTm=(st)=>{ 
+            const e=Date.now()-st; 
+            // format mm:ss
+            const mm = Math.floor(e/60000).toString().padStart(2,'0');
+            const ss = Math.floor((e%60000)/1000).toString().padStart(2,'0');
+            document.getElementById('timer-display').textContent=`${mm}:${ss}`;
+        };
+
+        // timerControl: improved state management and 1s interval
+        const timerControl = {
+            start: () => {
+                if (currentState.timerId) return;
+                let st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
+                if (!st) {
+                    st = Date.now();
+                    try { localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, st); } catch (err) { console.error('Could not persist timer start', err); }
+                } else {
+                    st = parseInt(st, 10);
+                    const elapsed = Date.now() - st;
+                    // If elapsed too long (e.g. >24h), treat as invalid and reset
+                    if (elapsed > (ONE_DAY_MS * 1)) {
+                        console.warn('Timer start too old, resetting.');
+                        localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
+                        UI.showMessage('途中で中断された計測をリセットしました', 'error');
+                        return;
+                    }
+                }
+                document.getElementById('start-stepper-btn').classList.add('hidden');
+                document.getElementById('stop-stepper-btn').classList.remove('hidden');
+                document.getElementById('timer-status').textContent='計測中...';
+                document.getElementById('timer-status').className='text-xs text-green-600 font-bold mb-1 animate-pulse';
+                // update immediately and then every 1s
+                updTm(st);
+                currentState.timerId = setInterval(()=>updTm(st), 1000);
+            },
+            stop: () => {
+                const st = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_START) || '0', 10);
+                if (!st) return;
+                if (currentState.timerId) {
+                    clearInterval(currentState.timerId);
+                    currentState.timerId = null;
+                }
+                const m = Math.round((Date.now() - st) / 60000);
+                localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
+                document.getElementById('start-stepper-btn').classList.remove('hidden');
+                document.getElementById('stop-stepper-btn').classList.add('hidden');
+                document.getElementById('timer-display').textContent='00:00';
+                document.getElementById('timer-status').textContent='READY';
+                document.getElementById('timer-status').className='text-xs text-gray-400 mt-1 font-medium';
+                if (m > 0) recordExercise(document.getElementById('exercise-select').value, m);
+                else UI.showMessage('1分未満のため記録せず','error');
+            }
+        };
+        window.timerControl = timerControl; // expose for onclick usage
+
+        // App namespace: group handlers to improve structure, but keep window.* for compatibility
+        const App = {
+            ui: UI,
+            store: Store,
+            handlers: {
+                switchTab, setBeerMode, saveSettings, handleBeerSubmit, handleManualExerciseSubmit, handleCheckSubmit, deleteLog, recordExercise, openHelp: UI.openHelp
+            }
+        };
+
+        // expose legacy globals (so inline onclicks keep working)
+        window.switchTab = App.handlers.switchTab;
+        window.setBeerMode = App.handlers.setBeerMode;
+        window.saveSettings = App.handlers.saveSettings;
+        window.handleBeerSubmit = App.handlers.handleBeerSubmit;
+        window.handleManualExerciseSubmit = App.handlers.handleManualExerciseSubmit;
+        window.handleCheckSubmit = App.handlers.handleCheckSubmit;
+        window.deleteLog = App.handlers.deleteLog;
+        window.recordExercise = App.handlers.recordExercise;
+
+// PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('Service Worker registered!', reg))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
+            if(st) { 
+                // try to resume; timerControl.start will check for stale timer
+                timerControl.start(); 
+                switchTab('tab-record'); 
+            } else { 
+                switchTab('tab-home'); 
+            }
+            
+            updateBeerSelectOptions(); 
+            initExerciseSelect();
+            
+            const zs = document.getElementById('beer-size'); 
+            Object.keys(SIZE_DATA).forEach(k=>{ 
+                const o=document.createElement('option'); 
+                o.value=k; o.textContent=SIZE_DATA[k].label; 
+                if(k==='350')o.selected=true; 
+                zs.appendChild(o); 
+            });
+            
+            // Set initial inputs
+            const p = Store.getProfile();
+            document.getElementById('weight-input').value = p.weight;
+            document.getElementById('height-input').value = p.height;
+            document.getElementById('age-input').value = p.age;
+            document.getElementById('gender-input').value = p.gender;
+
+            // Initialize Mode Buttons
+            UI.updateModeButtons();
+            
+            // Set default mode
+            setBeerMode('mode1');
+
+            // renderLogs(); renderChecks();  <-- these were undefined in original; call refreshUI instead
+            refreshUI();
+        });
+    </script>
+</body>
+</html>
