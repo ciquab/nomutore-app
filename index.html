@@ -4,13 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ノムトレ - 借金返済ダイエット</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#4F46E5">
-<link rel="apple-touch-icon" href="icon-192.png">
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4F46E5">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Dexie.js (IndexedDB Wrapper) -->
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
 
     <script>
         tailwind.config = {
@@ -107,8 +112,8 @@
                     <span class="text-3xl filter drop-shadow-md">🏃‍♀️</span>
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
-                    <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">Local Storage</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v9.2</span>
+                    <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">IndexedDB</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v10.1</span>
                 </div>
             </div>
         </div>
@@ -154,6 +159,25 @@
             <div id="tank-message" class="text-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100 mx-2">
                 <p class="text-sm font-bold text-gray-700">さあ、運動して満タンにしよう！</p>
             </div>
+            
+            <!-- Liver Rank Card -->
+            <div id="liver-rank-card" class="mx-2 mt-4 mb-2 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+                <div class="flex justify-between items-end mb-2 relative z-10">
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LIVER RANK</p>
+                        <h3 class="text-xl font-black mt-1" id="rank-title">Loading...</h3>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-2xl font-black text-gray-800" id="dry-count">0</span>
+                        <span class="text-xs font-bold text-gray-400">日 (累計)</span>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2 mb-1">
+                    <div id="rank-progress" class="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+                <p class="text-[10px] text-right text-gray-400 font-bold" id="rank-next-msg">次のランクまであと ? 日</p>
+            </div>
+
             <div id="check-status" class="mt-6 mx-2"></div>
             <div class="h-12"></div>
         </div>
@@ -251,56 +275,56 @@
                 <h3 class="text-lg font-bold text-gray-800">🍺 飲酒記録 (借金)</h3>
                 <button onclick="toggleModal('beer-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
             </div>
-<form id="beer-form" onsubmit="event.preventDefault(); handleBeerSubmit();">
-    <div class="space-y-5 mb-8">
-        <div>
-            <div class="flex justify-between items-end mb-1.5">
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wide">Beer Style</label>
-                <span class="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded" id="beer-select-mode-label"></span>
-            </div>
-            <select id="beer-select" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
-        </div>
+            <form id="beer-form" onsubmit="event.preventDefault(); handleBeerSubmit();">
+                <div class="space-y-5 mb-8">
+                    <div>
+                        <div class="flex justify-between items-end mb-1.5">
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wide">Beer Style</label>
+                            <span class="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded" id="beer-select-mode-label"></span>
+                        </div>
+                        <select id="beer-select" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+                    </div>
 
-        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
-            <input type="text" id="beer-brewery" placeholder="ブルワリー名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-            <input type="text" id="beer-brand" placeholder="銘柄名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-        </div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                        <input type="text" id="beer-brewery" placeholder="ブルワリー名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        <input type="text" id="beer-brand" placeholder="銘柄名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                    </div>
 
-        <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 space-y-3">
-            <div class="flex items-center gap-2">
-                <label class="text-xs font-bold text-yellow-600 uppercase">Rating</label>
-                <select id="beer-rating" class="p-1 bg-white border border-yellow-200 rounded text-sm font-bold text-yellow-600 outline-none">
-                    <option value="0">評価なし</option>
-                    <option value="1">★☆☆☆☆</option>
-                    <option value="2">★★☆☆☆</option>
-                    <option value="3">★★★☆☆</option>
-                    <option value="4">★★★★☆</option>
-                    <option value="5">★★★★★</option>
-                </select>
-            </div>
-            <textarea id="beer-memo" rows="2" placeholder="味の感想やメモ..." class="w-full p-2.5 bg-white border border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none text-sm resize-none"></textarea>
-        </div>
+                    <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-yellow-600 uppercase">Rating</label>
+                            <select id="beer-rating" class="p-1 bg-white border border-yellow-200 rounded text-sm font-bold text-yellow-600 outline-none">
+                                <option value="0">評価なし</option>
+                                <option value="1">★☆☆☆☆</option>
+                                <option value="2">★★☆☆☆</option>
+                                <option value="3">★★★☆☆</option>
+                                <option value="4">★★★★☆</option>
+                                <option value="5">★★★★★</option>
+                            </select>
+                        </div>
+                        <textarea id="beer-memo" rows="2" placeholder="味の感想やメモ..." class="w-full p-2.5 bg-white border border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none text-sm resize-none"></textarea>
+                    </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
-                <select id="beer-size" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
-                <input type="number" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
-            </div>
-        </div>
-        
-        <div class="flex items-center justify-center pt-2">
-            <label class="flex items-center space-x-2 cursor-pointer group">
-                <input type="checkbox" id="untappd-check" class="w-5 h-5 text-yellow-500 rounded border-gray-300 focus:ring-yellow-500">
-                <span class="text-xs font-bold text-gray-400 group-hover:text-yellow-600 transition">Untappdで検索して記録する</span>
-            </label>
-        </div>
-    </div>
-    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">記録する</button>
-</form>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
+                            <select id="beer-size" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
+                            <input type="number" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-center pt-2">
+                        <label class="flex items-center space-x-2 cursor-pointer group">
+                            <input type="checkbox" id="untappd-check" class="w-5 h-5 text-yellow-500 rounded border-gray-300 focus:ring-yellow-500">
+                            <span class="text-xs font-bold text-gray-400 group-hover:text-yellow-600 transition">Untappdで検索して記録する</span>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">記録する</button>
+            </form>
         </div>
     </div>
 
@@ -503,58 +527,71 @@
                 TIMER_START: 'hazy_payback_timer_start', 
                 MODE1: 'hazy_payback_mode_1', 
                 MODE2: 'hazy_payback_mode_2',
-                BASE_EXERCISE: 'hazy_payback_base_exercise' // New key for base exercise preference
+                BASE_EXERCISE: 'hazy_payback_base_exercise'
             },
             DEFAULTS: { 
                 WEIGHT: 70, HEIGHT: 170, AGE: 30, GENDER: 'male', 
                 MODE1: '大手ラガー', MODE2: 'Hazy IPA',
-                BASE_EXERCISE: 'stepper' // Default calculation base
+                BASE_EXERCISE: 'stepper'
             },
             TANK_MAX_CANS: 3.0
         };
-        // ★追加: Untappd連携用ユーティリティ
-const ExternalApp = {
-    searchUntappd: (term) => {
-        const query = encodeURIComponent(term);
-        const appUrl = `untappd://beer/search?q=${query}`;
-        const webUrl = `https://untappd.com/search?q=${query}`;
-        
-        // スマホでのアプリ起動を試みる
-        window.location.href = appUrl;
-        
-        // アプリがない、またはPCの場合はWebへ（少し遅らせて実行）
-        setTimeout(() => {
-            // アプリが起動した場合はここは実行されない（ことが多い）が、
-            // 確実ではないため、別タブで開くのが安全
-            if (!document.hidden) {
-                window.open(webUrl, '_blank');
+
+        // Initialize Dexie
+        const db = new Dexie("NomutoreDB");
+        db.version(1).stores({
+            logs: '++id, timestamp, type, name',
+            checks: '++id, timestamp'
+        });
+
+        // Data migration function (LocalStorage -> IndexedDB)
+        async function migrateData() {
+            const oldLogs = localStorage.getItem(APP.STORAGE_KEYS.LOGS);
+            const oldChecks = localStorage.getItem(APP.STORAGE_KEYS.CHECKS);
+
+            if (oldLogs) {
+                try {
+                    const logs = JSON.parse(oldLogs);
+                    if (Array.isArray(logs) && logs.length > 0) {
+                        await db.logs.bulkAdd(logs);
+                        console.log('Logs migrated:', logs.length);
+                    }
+                } catch (e) { console.error('Migration error (logs)', e); }
+                localStorage.removeItem(APP.STORAGE_KEYS.LOGS);
             }
-        }, 1000);
-    }
-};
+
+            if (oldChecks) {
+                try {
+                    const checks = JSON.parse(oldChecks);
+                    if (Array.isArray(checks) && checks.length > 0) {
+                        await db.checks.bulkAdd(checks);
+                        console.log('Checks migrated:', checks.length);
+                    }
+                } catch (e) { console.error('Migration error (checks)', e); }
+                localStorage.removeItem(APP.STORAGE_KEYS.CHECKS);
+            }
+        }
+
+        const ExternalApp = {
+            searchUntappd: (term) => {
+                const query = encodeURIComponent(term);
+                const appUrl = `untappd://beer/search?q=${query}`;
+                const webUrl = `https://untappd.com/search?q=${query}`;
+                window.location.href = appUrl;
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        window.open(webUrl, '_blank');
+                    }
+                }, 1000);
+            }
+        };
 
         const CALORIES = { STYLES: { 'バーレイワイン': 320, 'ダブルIPA (DIPA)': 270, 'ベルジャン・トリペル': 250, 'Hazy IPA': 220, 'スタウト': 200, 'IPA (West Coast)': 190, 'ヴァイツェン': 180, 'アンバーエール': 175, 'ポーター': 170, 'Hazyペールエール': 170, 'セゾン': 165, 'ベルジャンホワイト': 160, 'ペールエール': 160, 'ジャパニーズエール': 160, 'シュバルツ': 155, '大手ラガー': 145, 'ドルトムンター': 145, 'ピルスナー': 140, 'サワーエール': 140, 'フルーツビール': 160, 'セッションIPA': 130, '糖質オフ/第三のビール': 110 } };
         const EXERCISE = { 'stepper': { label: 'ステッパー', mets: 6.0, icon: '🏃‍♀️' }, 'walking': { label: 'ウォーキング (通勤等)', mets: 3.5, icon: '🚶' }, 'brisk_walking': { label: '早歩き', mets: 4.5, icon: '👟' }, 'cycling': { label: '自転車 (ゆっくり)', mets: 4.0, icon: '🚲' }, 'training': { label: '筋トレ (パーソナル等)', mets: 5.0, icon: '🏋️' }, 'running': { label: 'ランニング', mets: 7.0, icon: '💨' }, 'hiit': { label: 'HIIT (高強度)', mets: 8.0, icon: '🔥' }, 'yoga': { label: 'ヨガ (ストレッチ)', mets: 2.5, icon: '🧘' }, 'cleaning': { label: '部屋の掃除', mets: 3.0, icon: '🧹' } };
         const SIZE_DATA = { '350': { label: '350ml (缶)', ratio: 1.0 }, '500': { label: '500ml (ロング缶)', ratio: 1.43 }, '473': { label: '473ml (USパイント)', ratio: 1.35 }, '568': { label: '568ml (UKパイント)', ratio: 1.62 }, '250': { label: '250ml (小グラス)', ratio: 0.71 }, '1000': { label: '1L (マース)', ratio: 2.86 } };
 
-        // Store: add try/catch for read
         const Store = {
-            get: (key) => {
-                try {
-                    const d = localStorage.getItem(key);
-                    return d ? JSON.parse(d) : [];
-                } catch (error) {
-                    console.error('Storage read error:', error);
-                    return [];
-                }
-            },
-            set: (key, val) => {
-                try {
-                    localStorage.setItem(key, JSON.stringify(val));
-                } catch (err) {
-                    console.error('Storage write error:', err);
-                }
-            },
+            // Profile & Settings are kept in LocalStorage (Sync)
             getProfile: () => ({
                 weight: parseFloat(localStorage.getItem(APP.STORAGE_KEYS.WEIGHT)) || APP.DEFAULTS.WEIGHT,
                 height: parseFloat(localStorage.getItem(APP.STORAGE_KEYS.HEIGHT)) || APP.DEFAULTS.HEIGHT,
@@ -569,25 +606,34 @@ const ExternalApp = {
         };
 
         const Calc = {
-            // Ganpule Equation
             getBMR: () => {
                 const p = Store.getProfile();
-                const k = 1000 / 4.186; // MJ to kcal
+                const k = 1000 / 4.186;
                 if(p.gender === 'male') {
                     return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.4235) * k;
                 } else {
                     return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.9708) * k;
                 }
             },
-            // Net Consumption (METs - 1)
             burnRate: (mets) => {
                 const bmr = Calc.getBMR();
-                const netMets = Math.max(0, mets - 1); // Subtract resting metabolism
+                const netMets = Math.max(0, mets - 1);
                 return (bmr / 24 * netMets) / 60;
             },
             stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
             isSameDay: (ts1, ts2) => { const d1 = new Date(ts1), d2 = new Date(ts2); return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); },
-            hasAlcoholLog: (timestamp) => Store.get(APP.STORAGE_KEYS.LOGS).some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp))
+            
+            // Updated to receive arrays as arguments
+            hasAlcoholLog: (logs, timestamp) => logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp)),
+            getDryDayCount: (checks) => checks.filter(c => c.isDryDay).length,
+            getLiverRank: (count) => {
+                if (count >= 100) return { title: '神の肝臓 👼', color: 'text-purple-600', bg: 'bg-purple-100', next: null };
+                if (count >= 50) return { title: '鉄の肝臓 🛡️', color: 'text-slate-700', bg: 'bg-slate-200', next: 100 };
+                if (count >= 30) return { title: 'プロ休肝ラー 🧘', color: 'text-indigo-600', bg: 'bg-indigo-100', next: 50 };
+                if (count >= 10) return { title: '健康マイスター 🌿', color: 'text-green-600', bg: 'bg-green-100', next: 30 };
+                if (count >= 3) return { title: '見習い 🔰', color: 'text-blue-600', bg: 'bg-blue-100', next: 10 };
+                return { title: 'たまご 🥚', color: 'text-gray-500', bg: 'bg-gray-100', next: 3 };
+            }
         };
 
         let currentState = { beerMode: 'mode1', chart: null, timerId: null };
@@ -633,10 +679,8 @@ const ExternalApp = {
             const exData = EXERCISE[baseEx] || EXERCISE['stepper'];
             
             s.innerHTML = '<option value="">選択してください</option>'; 
-            // Calculate rate based on user's selected base exercise (not hardcoded stepper)
             const r = Calc.burnRate(exData.mets); 
             
-            // Update label in modal to show which exercise is being used
             const labelEl = document.getElementById('beer-select-mode-label');
             if (labelEl) labelEl.textContent = `${exData.icon} ${exData.label} 換算`;
 
@@ -647,7 +691,6 @@ const ExternalApp = {
                 s.appendChild(o); 
             }); 
             
-            // Populate setting modes (these remain the same list of beers)
             const m1 = document.getElementById('setting-mode-1'); m1.innerHTML = '';
             const m2 = document.getElementById('setting-mode-2'); m2.innerHTML = '';
             Object.keys(CALORIES.STYLES).forEach(k => {
@@ -657,7 +700,6 @@ const ExternalApp = {
         }
 
         function initExerciseSelect() { 
-            // Main record tab exercise select
             const s = document.getElementById('exercise-select'); 
             Object.keys(EXERCISE).forEach(k => { 
                 const o = document.createElement('option'); 
@@ -666,7 +708,6 @@ const ExternalApp = {
                 s.appendChild(o); 
             }); 
 
-            // Settings base exercise select
             const sb = document.getElementById('setting-base-exercise');
             sb.innerHTML = '';
             Object.keys(EXERCISE).forEach(k => {
@@ -677,12 +718,22 @@ const ExternalApp = {
             });
         }
 
-        function refreshUI() {
-            const logs = Store.get(APP.STORAGE_KEYS.LOGS);
-            renderLogList(logs);
-            renderBeerTank(logs);
-            renderCheckStatus();
-            if(document.getElementById('tab-history').classList.contains('active')) renderChart(logs);
+        // --- ASYNC REFRESH FUNCTION ---
+        async function refreshUI() {
+            try {
+                // Fetch data from IndexedDB
+                const logs = await db.logs.toArray();
+                const checks = await db.checks.toArray();
+
+                renderLogList(logs);
+                renderBeerTank(logs);
+                renderCheckStatus(checks, logs);
+                renderLiverRank(checks);
+                
+                if(document.getElementById('tab-history').classList.contains('active')) renderChart(logs);
+            } catch (err) {
+                console.error("Failed to refresh UI:", err);
+            }
         }
 
         function renderLogList(logs) {
@@ -690,39 +741,31 @@ const ExternalApp = {
             const list = document.getElementById('log-list');
             if (logs.length === 0) { list.innerHTML = '<p class="text-gray-500 p-4 text-center">まだ記録がありません。</p>'; return; }
             
-            // Get User Preferred Base Exercise for Display
             const baseEx = Store.getBaseExercise();
             const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
             const displayRate = Calc.burnRate(baseExData.mets);
             const stepperRate = Calc.burnRate(EXERCISE['stepper'].mets);
 
-            // Update label
             document.getElementById('history-base-label').textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
 
-list.innerHTML = logs.map(log => {
+            list.innerHTML = logs.map(log => {
                 const isDebt = log.minutes < 0;
                 const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
                 const signClass = isDebt ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
                 const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 
-                // ★修正: 詳細表示の拡張（ブルワリー、評価、メモを表示）
                 let detailHtml = '';
-                
-                // 銘柄情報
                 if (log.brewery || log.brand) {
                     detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${log.brewery||''}</span> <span class="text-gray-600">${log.brand||''}</span></p>`;
                 }
                 
-                // 評価とメモがある場合（借金ログのみ）
                 if (log.minutes < 0 && (log.rating > 0 || log.memo)) {
                     const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
                     const ratingDisplay = log.rating > 0 ? `<span class="text-yellow-500 text-[10px] mr-2">${stars}</span>` : '';
                     const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${log.memo}"</span>` : '';
-                    
                     detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
                 }
 
-                // Convert stored stepper minutes to Kcal then to preferred exercise minutes
                 const kcal = Math.abs(log.minutes) * stepperRate;
                 const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
@@ -745,13 +788,9 @@ list.innerHTML = logs.map(log => {
             const targetStyle = currentState.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
             const unitKcal = CALORIES.STYLES[targetStyle] || 145;
             
-            // totalBalance is in Stepper Minutes (always). Convert to Kcal.
             const totalKcal = totalBalance * Calc.burnRate(EXERCISE['stepper'].mets);
-            
-            // Calculate can count
             const canCount = parseFloat((totalKcal / unitKcal).toFixed(1));
 
-            // Get User Preferred Base Exercise for Display
             const baseEx = Store.getBaseExercise();
             const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
             const displayRate = Calc.burnRate(baseExData.mets);
@@ -769,7 +808,6 @@ list.innerHTML = logs.map(log => {
                 liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
                 cansText.textContent = canCount.toFixed(1);
                 
-                // Show minutes converted to user's preferred exercise
                 minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
                 
                 if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500'; }
@@ -781,7 +819,6 @@ list.innerHTML = logs.map(log => {
                 emptyIcon.style.opacity = '1';
                 cansText.textContent = "0.0";
                 
-                // Show debt minutes converted to user's preferred exercise
                 minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
                 minText.className = 'text-sm font-bold text-red-500';
                 
@@ -791,8 +828,37 @@ list.innerHTML = logs.map(log => {
             }
         }
 
-        function renderCheckStatus() {
-            const checks = Store.get(APP.STORAGE_KEYS.CHECKS).sort((a,b)=>b.timestamp-a.timestamp);
+        function renderLiverRank(checks) {
+            const count = Calc.getDryDayCount(checks);
+            const rank = Calc.getLiverRank(count);
+            
+            const card = document.getElementById('liver-rank-card');
+            const title = document.getElementById('rank-title');
+            const countEl = document.getElementById('dry-count');
+            const bar = document.getElementById('rank-progress');
+            const msg = document.getElementById('rank-next-msg');
+
+            title.className = `text-xl font-black mt-1 ${rank.color}`;
+            title.textContent = rank.title;
+            countEl.textContent = count;
+            
+            card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${rank.bg}`;
+
+            if (rank.next) {
+                const prevTarget = rank.next === 3 ? 0 : (rank.next === 10 ? 3 : (rank.next === 30 ? 10 : (rank.next === 50 ? 30 : 50)));
+                const range = rank.next - prevTarget;
+                const current = count - prevTarget;
+                const percent = Math.min(100, Math.max(5, (current / range) * 100));
+                
+                bar.style.width = `${percent}%`;
+                msg.textContent = `次のランクまであと ${rank.next - count} 日`;
+            } else {
+                bar.style.width = '100%';
+                msg.textContent = '最高ランク到達！レジェンド！👑';
+            }
+        }
+
+        function renderCheckStatus(checks, logs) {
             const status = document.getElementById('check-status');
             const today = new Date(); const yest = new Date(new Date().setDate(today.getDate()-1));
             let targetCheck = null; let type = 'none';
@@ -803,7 +869,7 @@ list.innerHTML = logs.map(log => {
             }
 
             if (type !== 'none') {
-                const msg = getCheckMessage(targetCheck);
+                const msg = getCheckMessage(targetCheck, logs);
                 const title = type === 'today' ? "Today's Condition" : "Yesterday's Check";
                 const style = type === 'today' ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-green-400 border-l-4";
                 status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800">${msg}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
@@ -813,8 +879,8 @@ list.innerHTML = logs.map(log => {
             }
         }
 
-        function getCheckMessage(check) {
-            const drank = Calc.hasAlcoholLog(check.timestamp);
+        function getCheckMessage(check, logs) {
+            const drank = Calc.hasAlcoholLog(logs, check.timestamp);
             if (drank || !check.isDryDay) {
                 let s = 0; if (check.waistEase) s++; if (check.footLightness) s++; if (check.fiberOk) s++; if (check.waterOk) s++;
                 if (s === 4) return '代謝絶好調！😆'; if (s >= 1) return `${s}/4 クリア 😐`; return '不調気味... 😰';
@@ -850,8 +916,7 @@ list.innerHTML = logs.map(log => {
         }
 
         /* --- 4. EVENT HANDLERS --- */
-        function switchTab(tabId) {
-            // Guard clause: if tabId is missing or elements don't exist, exit
+        async function switchTab(tabId) {
             if (!tabId) return;
             const targetTab = document.getElementById(tabId);
             const targetNav = document.getElementById(`nav-${tabId}`);
@@ -864,7 +929,10 @@ list.innerHTML = logs.map(log => {
             targetNav.classList.remove('text-gray-400');
             targetNav.classList.add('text-indigo-600');
             
-            if (tabId === 'tab-history') setTimeout(() => renderChart(Store.get(APP.STORAGE_KEYS.LOGS)), 50);
+            if (tabId === 'tab-history') {
+                const logs = await db.logs.toArray();
+                setTimeout(() => renderChart(logs), 50);
+            }
         }
 
         function setBeerMode(mode) {
@@ -909,116 +977,151 @@ list.innerHTML = logs.map(log => {
             }
         }
 
-/* --- handleBeerSubmit 関数を上書きしてください --- */
+        // Updated for Dexie/Async
+        async function handleBeerSubmit() {
+            const s = document.getElementById('beer-select').value;
+            const z = document.getElementById('beer-size').value;
+            const c = parseFloat(document.getElementById('beer-count').value);
+            const brewery = document.getElementById('beer-brewery').value;
+            const brand = document.getElementById('beer-brand').value;
+            const rating = parseInt(document.getElementById('beer-rating').value) || 0;
+            const memo = document.getElementById('beer-memo').value;
+            const useUntappd = document.getElementById('untappd-check').checked;
 
-function handleBeerSubmit() {
-    const s = document.getElementById('beer-select').value;
-    const z = document.getElementById('beer-size').value;
-    const c = parseFloat(document.getElementById('beer-count').value);
-    
-    // 追加フィールドの取得
-    const brewery = document.getElementById('beer-brewery').value;
-    const brand = document.getElementById('beer-brand').value;
-    const rating = parseInt(document.getElementById('beer-rating').value) || 0;
-    const memo = document.getElementById('beer-memo').value;
-    const useUntappd = document.getElementById('untappd-check').checked;
+            if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
 
-    if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
+            const kcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
+            const min = kcal / Calc.burnRate(EXERCISE['stepper'].mets);
+            
+            await db.logs.add({ 
+                name: `${s} x${c}`, 
+                type: '借金', 
+                minutes: -Math.round(min), 
+                timestamp: Date.now(), 
+                brewery: brewery, 
+                brand: brand,
+                rating: rating,
+                memo: memo
+            });
+            
+            UI.showMessage('飲酒を記録しました 🍺', 'success'); 
+            toggleModal('beer-modal', false); 
+            await refreshUI();
 
-    const kcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
-    const min = kcal / Calc.burnRate(EXERCISE['stepper'].mets);
-    const logs = Store.get(APP.STORAGE_KEYS.LOGS);
-    
-    // ログオブジェクトの拡張（rating, memoを追加）
-    logs.push({ 
-        name: `${s} x${c}`, 
-        type: '借金', 
-        minutes: -Math.round(min), 
-        timestamp: Date.now(), 
-        brewery: brewery, 
-        brand: brand,
-        rating: rating, // ★New
-        memo: memo      // ★New
-    });
-    
-    Store.set(APP.STORAGE_KEYS.LOGS, logs); 
-    UI.showMessage('飲酒を記録しました 🍺', 'success'); 
-    toggleModal('beer-modal', false); 
-    refreshUI();
+            document.getElementById('beer-brewery').value = '';
+            document.getElementById('beer-brand').value = '';
+            document.getElementById('beer-rating').value = '0';
+            document.getElementById('beer-memo').value = '';
+            document.getElementById('untappd-check').checked = false;
 
-    // 入力のリセット（次回のために）
-    document.getElementById('beer-brewery').value = '';
-    document.getElementById('beer-brand').value = '';
-    document.getElementById('beer-rating').value = '0';
-    document.getElementById('beer-memo').value = '';
-    document.getElementById('untappd-check').checked = false;
+            if (useUntappd) {
+                let searchTerm = brand;
+                if (brewery) searchTerm = `${brewery} ${brand}`;
+                if (!searchTerm) searchTerm = s;
+                ExternalApp.searchUntappd(searchTerm);
+            }
+        }
 
-    // ★Untappd連携ロジック
-    if (useUntappd) {
-        // 検索ワードの作成: "BreweryName BeerName" がヒットしやすい
-        let searchTerm = brand;
-        if (brewery) searchTerm = `${brewery} ${brand}`;
-        if (!searchTerm) searchTerm = s; // 名前がない場合はスタイルで検索
-        
-        ExternalApp.searchUntappd(searchTerm);
-    }
-}
-        function handleManualExerciseSubmit() { 
+        async function handleManualExerciseSubmit() { 
             const m = parseFloat(document.getElementById('manual-minutes').value); 
             if(!m) return UI.showMessage('時間を入力','error'); 
-            recordExercise(document.getElementById('exercise-select').value, m); 
+            await recordExercise(document.getElementById('exercise-select').value, m); 
             document.getElementById('manual-minutes').value=''; 
             toggleModal('manual-exercise-modal', false); 
         }
 
-        function handleCheckSubmit() { 
+        // Updated for Dexie/Async
+        async function handleCheckSubmit() { 
             const f=document.getElementById('check-form'), isDry=document.getElementById('is-dry-day').checked; 
             let ts=Date.now(); 
             if(document.getElementById('record-as-yesterday').checked) ts-=ONE_DAY_MS; 
-            const c=Store.get(APP.STORAGE_KEYS.CHECKS); 
-            c.push({isDryDay:isDry, waistEase:f.elements['waistEase'].checked, footLightness:f.elements['footLightness'].checked, waterOk:isDry?null:f.elements['waterOk'].checked, fiberOk:isDry?null:f.elements['fiberOk'].checked, timestamp:ts}); 
-            Store.set(APP.STORAGE_KEYS.CHECKS, c); UI.showMessage('チェック完了！','success'); toggleModal('check-modal', false); document.getElementById('is-dry-day').checked=false; document.getElementById('record-as-yesterday').checked=false; document.getElementById('drinking-section').classList.remove('hidden-area'); refreshUI(); 
+            
+            await db.checks.add({
+                isDryDay:isDry, 
+                waistEase:f.elements['waistEase'].checked, 
+                footLightness:f.elements['footLightness'].checked, 
+                waterOk:isDry?null:f.elements['waterOk'].checked, 
+                fiberOk:isDry?null:f.elements['fiberOk'].checked, 
+                timestamp:ts
+            }); 
+            
+            UI.showMessage('チェック完了！','success'); 
+            toggleModal('check-modal', false); 
+            document.getElementById('is-dry-day').checked=false; 
+            document.getElementById('record-as-yesterday').checked=false; 
+            document.getElementById('drinking-section').classList.remove('hidden-area'); 
+            await refreshUI(); 
         }
 
-        // clearer deleteLog implementation
-        function deleteLog(timestamp) {
+        // Updated for Dexie/Async
+        async function deleteLog(timestamp) {
             if (!confirm('削除しますか？')) return;
-            const logs = Store.get(APP.STORAGE_KEYS.LOGS);
-            const filteredLogs = logs.filter(log => log.timestamp !== timestamp);
-            Store.set(APP.STORAGE_KEYS.LOGS, filteredLogs);
+            await db.logs.where('timestamp').equals(timestamp).delete();
             UI.showMessage('削除しました', 'success');
-            refreshUI();
+            await refreshUI();
         }
 
-        function recordExercise(t,m) { 
-            const i=EXERCISE[t], eq=Calc.stepperEq(Calc.burnRate(i.mets)*m), l=Store.get(APP.STORAGE_KEYS.LOGS); 
-            l.push({name:`${i.icon} ${i.label}`, type:'返済', minutes:Math.round(eq), rawMinutes:m, timestamp:Date.now()}); 
-            Store.set(APP.STORAGE_KEYS.LOGS, l); UI.showMessage(`${i.label} ${m}分 記録！`,'success'); refreshUI(); 
+        // Updated for Dexie/Async
+        async function recordExercise(t,m) { 
+            const i=EXERCISE[t], eq=Calc.stepperEq(Calc.burnRate(i.mets)*m);
+            await db.logs.add({
+                name:`${i.icon} ${i.label}`, 
+                type:'返済', 
+                minutes:Math.round(eq), 
+                rawMinutes:m, 
+                timestamp:Date.now()
+            }); 
+            UI.showMessage(`${i.label} ${m}分 記録！`,'success'); 
+            await refreshUI(); 
         }
 
-const DataManager = {
-            exportCSV: (t) => { 
+        const DataManager = {
+            exportCSV: async (t) => { 
                 let d=[],c="",n=""; 
                 const e=(s)=>`"${String(s).replace(/"/g,'""')}"`; 
                 if(t==='logs'){ 
-                    d=Store.get(APP.STORAGE_KEYS.LOGS).sort((a,b)=>a.timestamp-b.timestamp); 
-                    // ★修正: ヘッダーに「評価,メモ」を追加し、データにも反映
+                    d = await db.logs.toArray();
+                    d.sort((a,b)=>a.timestamp-b.timestamp); 
                     c="日時,内容,換算分(ステッパー基準),実運動時間(分),ブルワリー,銘柄,評価,メモ\n"+d.map(r=>{
                         const rawMin = r.rawMinutes !== undefined ? r.rawMinutes : '-';
-                        // r.rating と r.memo を追加（存在しない場合は空文字や0）
                         return `${new Date(r.timestamp).toLocaleString()},${e(r.name)},${r.minutes},${rawMin},${e(r.brewery)},${e(r.brand)},${r.rating || 0},${e(r.memo || '')}`;
                     }).join('\n'); 
                     n="beer-log"; 
                 } else { 
-                    d=Store.get(APP.STORAGE_KEYS.CHECKS).sort((a,b)=>a.timestamp-b.timestamp); 
+                    d = await db.checks.toArray();
+                    d.sort((a,b)=>a.timestamp-b.timestamp); 
                     c="日時,休肝日\n"+d.map(r=>`${new Date(r.timestamp).toLocaleString()},${r.isDryDay}`).join('\n'); 
                     n="check-log"; 
                 } 
                 DataManager.download(c, `nomutore-${n}.csv`, 'text/csv'); 
             },
-            exportJSON: () => { DataManager.download(JSON.stringify({logs:Store.get(APP.STORAGE_KEYS.LOGS), checks:Store.get(APP.STORAGE_KEYS.CHECKS)},null,2), 'nomutore-backup.json', 'application/json'); },
-            copyToClipboard: () => { navigator.clipboard.writeText(JSON.stringify({logs:Store.get(APP.STORAGE_KEYS.LOGS), checks:Store.get(APP.STORAGE_KEYS.CHECKS)},null,2)).then(()=>UI.showMessage('コピーしました','success')); },
-            importJSON: (i) => { const f=i.files[0]; if(!f)return; const r=new FileReader(); r.onload=(e)=>{ try{ const d=JSON.parse(e.target.result); if(confirm('データを復元しますか？')){ Store.set(APP.STORAGE_KEYS.LOGS, d.logs||[]); Store.set(APP.STORAGE_KEYS.CHECKS, d.checks||[]); refreshUI(); UI.showMessage('復元しました','success'); } }catch(err){UI.showMessage('読込失敗','error');} i.value=''; }; r.readAsText(f); },
+            exportJSON: async () => { 
+                const logs = await db.logs.toArray();
+                const checks = await db.checks.toArray();
+                DataManager.download(JSON.stringify({logs, checks},null,2), 'nomutore-backup.json', 'application/json'); 
+            },
+            copyToClipboard: async () => { 
+                const logs = await db.logs.toArray();
+                const checks = await db.checks.toArray();
+                navigator.clipboard.writeText(JSON.stringify({logs, checks},null,2)).then(()=>UI.showMessage('コピーしました','success')); 
+            },
+            importJSON: (i) => { 
+                const f=i.files[0]; if(!f)return; 
+                const r=new FileReader(); 
+                r.onload=async (e)=>{ 
+                    try{ 
+                        const d=JSON.parse(e.target.result); 
+                        if(confirm('データを復元しますか？')){ 
+                            if(d.logs) await db.logs.bulkAdd(d.logs);
+                            if(d.checks) await db.checks.bulkAdd(d.checks);
+                            await refreshUI(); 
+                            UI.showMessage('復元しました','success'); 
+                        } 
+                    }catch(err){UI.showMessage('読込失敗','error');} 
+                    i.value=''; 
+                }; 
+                r.readAsText(f); 
+            },
             download: (d,n,t) => { const b=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),d],{type:t}), u=URL.createObjectURL(b), a=document.createElement('a'); a.href=u; a.download=n; a.click(); }
         }; window.DataManager = DataManager;
 
@@ -1026,13 +1129,11 @@ const DataManager = {
         let ti=null;
         const updTm=(st)=>{ 
             const e=Date.now()-st; 
-            // format mm:ss
             const mm = Math.floor(e/60000).toString().padStart(2,'0');
             const ss = Math.floor((e%60000)/1000).toString().padStart(2,'0');
             document.getElementById('timer-display').textContent=`${mm}:${ss}`;
         };
 
-        // timerControl: improved state management and 1s interval
         const timerControl = {
             start: () => {
                 if (currentState.timerId) return;
@@ -1043,7 +1144,6 @@ const DataManager = {
                 } else {
                     st = parseInt(st, 10);
                     const elapsed = Date.now() - st;
-                    // If elapsed too long (e.g. >24h), treat as invalid and reset
                     if (elapsed > (ONE_DAY_MS * 1)) {
                         console.warn('Timer start too old, resetting.');
                         localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
@@ -1055,11 +1155,10 @@ const DataManager = {
                 document.getElementById('stop-stepper-btn').classList.remove('hidden');
                 document.getElementById('timer-status').textContent='計測中...';
                 document.getElementById('timer-status').className='text-xs text-green-600 font-bold mb-1 animate-pulse';
-                // update immediately and then every 1s
                 updTm(st);
                 currentState.timerId = setInterval(()=>updTm(st), 1000);
             },
-            stop: () => {
+            stop: async () => {
                 const st = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_START) || '0', 10);
                 if (!st) return;
                 if (currentState.timerId) {
@@ -1073,13 +1172,12 @@ const DataManager = {
                 document.getElementById('timer-display').textContent='00:00';
                 document.getElementById('timer-status').textContent='READY';
                 document.getElementById('timer-status').className='text-xs text-gray-400 mt-1 font-medium';
-                if (m > 0) recordExercise(document.getElementById('exercise-select').value, m);
+                if (m > 0) await recordExercise(document.getElementById('exercise-select').value, m);
                 else UI.showMessage('1分未満のため記録せず','error');
             }
         };
-        window.timerControl = timerControl; // expose for onclick usage
+        window.timerControl = timerControl;
 
-        // App namespace: group handlers to improve structure, but keep window.* for compatibility
         const App = {
             ui: UI,
             store: Store,
@@ -1088,7 +1186,7 @@ const DataManager = {
             }
         };
 
-        // expose legacy globals (so inline onclicks keep working)
+        // expose legacy globals
         window.switchTab = App.handlers.switchTab;
         window.setBeerMode = App.handlers.setBeerMode;
         window.saveSettings = App.handlers.saveSettings;
@@ -1098,7 +1196,7 @@ const DataManager = {
         window.deleteLog = App.handlers.deleteLog;
         window.recordExercise = App.handlers.recordExercise;
 
-// PWA Service Worker Registration
+        // PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./service-worker.js')
@@ -1108,10 +1206,12 @@ const DataManager = {
         }
 
         // Init
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Run Migration first
+            await migrateData();
+
             const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
             if(st) { 
-                // try to resume; timerControl.start will check for stale timer
                 timerControl.start(); 
                 switchTab('tab-record'); 
             } else { 
@@ -1129,21 +1229,18 @@ const DataManager = {
                 zs.appendChild(o); 
             });
             
-            // Set initial inputs
             const p = Store.getProfile();
             document.getElementById('weight-input').value = p.weight;
             document.getElementById('height-input').value = p.height;
             document.getElementById('age-input').value = p.age;
             document.getElementById('gender-input').value = p.gender;
 
-            // Initialize Mode Buttons
             UI.updateModeButtons();
             
-            // Set default mode
             setBeerMode('mode1');
 
-            // renderLogs(); renderChecks();  <-- these were undefined in original; call refreshUI instead
-            refreshUI();
+            // Refresh UI with data from IndexedDB
+            await refreshUI();
         });
     </script>
 </body>
