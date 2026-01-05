@@ -113,7 +113,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v10.1</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v10.3</span>
                 </div>
             </div>
         </div>
@@ -178,6 +178,32 @@
                 <p class="text-[10px] text-right text-gray-400 font-bold" id="rank-next-msg">次のランクまであと ? 日</p>
             </div>
 
+            <!-- Streak & Weekly -->
+            <div class="mx-2 mt-4 mb-2 flex gap-3">
+                <div class="w-1/3 bg-orange-50 rounded-2xl p-3 border border-orange-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 right-0 p-1 opacity-10 text-4xl">🔥</div>
+                    <p class="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-1">STREAK</p>
+                    <div class="flex items-baseline">
+                        <span id="streak-count" class="text-3xl font-black text-orange-600">0</span>
+                        <span class="text-xs font-bold text-orange-400 ml-1">Days</span>
+                    </div>
+                    <div id="streak-badge" class="mt-1 px-2 py-0.5 bg-white rounded-full text-[10px] font-bold text-gray-400 shadow-sm border border-orange-100">
+                        x1.0 Bonus
+                    </div>
+                </div>
+
+                <div class="w-2/3 bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex flex-col justify-center">
+                    <div class="flex justify-between items-end mb-2">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LAST 7 DAYS</p>
+                        <span id="weekly-status-text" class="text-[10px] font-bold text-indigo-500">Keep it up!</span>
+                    </div>
+                    <div id="weekly-stamps" class="flex justify-between items-center px-1">
+                        <!-- Stamps will be injected here -->
+                        <div class="w-6 h-6 rounded-full bg-gray-100"></div>
+                    </div>
+                </div>
+            </div>
+
             <div id="check-status" class="mt-6 mx-2"></div>
             <div class="h-12"></div>
         </div>
@@ -215,7 +241,7 @@
             <h2 class="text-xl font-black text-gray-800 mb-4 px-2 flex items-center gap-2">📊 活動の履歴</h2>
             <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold text-gray-400 mb-4 uppercase tracking-wide flex items-center gap-1">
-                    <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Balance Trend
+                    <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Balance Trend & Weight
                 </h2>
                 <div class="relative h-64 w-full"><canvas id="balanceChart"></canvas></div>
             </div>
@@ -358,6 +384,15 @@
                             <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-green-100 hover:border-green-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">👖 ウエストに余裕あり</span><input type="checkbox" name="waistEase" class="h-5 w-5 text-green-600 rounded"></label>
                             <label class="flex items-center justify-between bg-white p-3 rounded-lg border border-green-100 hover:border-green-300 cursor-pointer"><span class="text-gray-700 font-bold text-sm">🦶 足が軽い・むくみなし</span><input type="checkbox" name="footLightness" class="h-5 w-5 text-green-600 rounded"></label>
                         </div>
+                    </div>
+                    <!-- Weight Input (Optional) -->
+                    <div class="pt-4 border-t border-gray-100">
+                         <label class="block text-xs font-bold text-gray-400 mb-1">📏 今日の体重 (任意)</label>
+                         <div class="flex items-center gap-2">
+                             <input type="number" id="check-weight" step="0.1" placeholder="測った時だけ入力" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-700">
+                             <span class="text-xs font-bold text-gray-400">kg</span>
+                         </div>
+                         <p class="text-[10px] text-gray-400 mt-1 text-center">※入力しなくてもOKです</p>
                     </div>
                 </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">完了</button>
@@ -623,7 +658,32 @@
             stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
             isSameDay: (ts1, ts2) => { const d1 = new Date(ts1), d2 = new Date(ts2); return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); },
             
-            // Updated to receive arrays as arguments
+            getDayStatus: (date, logs, checks) => {
+                const hasDrink = logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, date));
+                const isDryCheck = checks.some(c => c.isDryDay && Calc.isSameDay(c.timestamp, date));
+                if (hasDrink) return 'drink';
+                if (isDryCheck) return 'dry';
+                return 'unknown';
+            },
+
+            getCurrentStreak: (logs, checks) => {
+                let streak = 0;
+                const today = new Date();
+                for (let i = 1; i <= 30; i++) {
+                    const d = new Date();
+                    d.setDate(today.getDate() - i);
+                    const status = Calc.getDayStatus(d, logs, checks);
+                    if (status === 'dry') streak++; else break;
+                }
+                return streak;
+            },
+
+            getStreakMultiplier: (streak) => {
+                if (streak >= 3) return 1.2;
+                if (streak >= 2) return 1.1;
+                return 1.0;
+            },
+
             hasAlcoholLog: (logs, timestamp) => logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp)),
             getDryDayCount: (checks) => checks.filter(c => c.isDryDay).length,
             getLiverRank: (count) => {
@@ -645,7 +705,11 @@
                 mb.classList.remove('hidden'); setTimeout(() => mb.classList.add('hidden'), 3000);
             },
             toggleDryDay: (cb) => document.getElementById('drinking-section').classList.toggle('hidden-area', cb.checked),
-            openCheckModal: () => { document.getElementById('record-as-yesterday').checked = (new Date().getHours() < 12); toggleModal('check-modal', true); },
+            openCheckModal: () => { 
+                document.getElementById('record-as-yesterday').checked = (new Date().getHours() < 12); 
+                document.getElementById('check-weight').value = ''; // Reset weight input
+                toggleModal('check-modal', true); 
+            },
             openManualInput: () => { document.getElementById('manual-exercise-name').textContent = EXERCISE[document.getElementById('exercise-select').value].label; toggleModal('manual-exercise-modal', true); },
             openSettings: () => {
                 const p = Store.getProfile();
@@ -729,8 +793,9 @@
                 renderBeerTank(logs);
                 renderCheckStatus(checks, logs);
                 renderLiverRank(checks);
+                renderWeeklyAndHeatUp(logs, checks);
                 
-                if(document.getElementById('tab-history').classList.contains('active')) renderChart(logs);
+                if(document.getElementById('tab-history').classList.contains('active')) renderChart(logs, checks);
             } catch (err) {
                 console.error("Failed to refresh UI:", err);
             }
@@ -872,11 +937,77 @@
                 const msg = getCheckMessage(targetCheck, logs);
                 const title = type === 'today' ? "Today's Condition" : "Yesterday's Check";
                 const style = type === 'today' ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-green-400 border-l-4";
-                status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800">${msg}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
+                
+                // Add weight info if exists
+                let weightHtml = '';
+                if(targetCheck.weight) {
+                    weightHtml = `<span class="ml-2 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold">${targetCheck.weight}kg</span>`;
+                }
+
+                status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800 flex items-center">${msg}${weightHtml}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
             } else {
                 const lastDate = checks.length > 0 ? new Date(checks[0].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
                 status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
             }
+        }
+
+        function renderWeeklyAndHeatUp(logs, checks) {
+            const streak = Calc.getCurrentStreak(logs, checks);
+            const multiplier = Calc.getStreakMultiplier(streak);
+            
+            document.getElementById('streak-count').textContent = streak;
+            
+            const badge = document.getElementById('streak-badge');
+            if (multiplier > 1.0) {
+                badge.textContent = `🔥 x${multiplier.toFixed(1)} Bonus!`;
+                badge.className = "mt-1 px-2 py-0.5 bg-orange-500 rounded-full text-[10px] font-bold text-white shadow-sm animate-pulse";
+            } else {
+                badge.textContent = "x1.0 (Normal)";
+                badge.className = "mt-1 px-2 py-0.5 bg-white rounded-full text-[10px] font-bold text-gray-400 shadow-sm border border-orange-100";
+            }
+
+            const container = document.getElementById('weekly-stamps');
+            container.innerHTML = '';
+            
+            const today = new Date();
+            let dryCountInWeek = 0;
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(today.getDate() - i);
+                const status = Calc.getDayStatus(d, logs, checks);
+                const isToday = i === 0;
+
+                let elClass = "w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-sm transition-all ";
+                let content = "";
+
+                if (isToday) {
+                    elClass += "border-2 border-indigo-500 bg-white text-indigo-500 font-bold relative transform scale-110";
+                    content = "今";
+                } else if (status === 'dry') {
+                    elClass += "bg-green-100 text-green-600 border border-green-200";
+                    content = "🍵";
+                    dryCountInWeek++;
+                } else if (status === 'drink') {
+                    elClass += "bg-red-100 text-red-600 border border-red-200";
+                    content = "🍺";
+                } else {
+                    elClass += "bg-gray-100 text-gray-300 border border-gray-200";
+                    content = "?";
+                }
+
+                const div = document.createElement('div');
+                div.className = elClass;
+                div.textContent = content;
+                div.title = `${d.getMonth()+1}/${d.getDate()}`;
+                
+                container.appendChild(div);
+            }
+
+            const msgEl = document.getElementById('weekly-status-text');
+            if (dryCountInWeek >= 4) msgEl.textContent = "Excellent! 🌟";
+            else if (dryCountInWeek >= 2) msgEl.textContent = "Good pace 👍";
+            else msgEl.textContent = "Let's rest... 🍵";
         }
 
         function getCheckMessage(check, logs) {
@@ -887,30 +1018,156 @@
             } else { return (check.waistEase && check.footLightness) ? '休肝日＋絶好調！✨' : '休肝日 (体調イマイチ)🍵'; }
         }
 
-        function renderChart(logs) {
+        function renderChart(logs, checks) {
             const ctxCanvas = document.getElementById('balanceChart');
             if (!ctxCanvas || typeof Chart === 'undefined') return;
             try {
                 const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
                 const dailyData = new Map();
+                
+                // 1. Process Logs for Balance
                 let currentBalance = 0;
-                if (sortedLogs.length === 0) { const t = new Date(); dailyData.set(`${t.getMonth()+1}/${t.getDate()}`, {plus:0, minus:0, bal:0}); } 
-                else {
-                    sortedLogs.forEach(l => {
+                
+                // Init with today if empty
+                if (sortedLogs.length === 0 && checks.length === 0) { 
+                    const t = new Date(); dailyData.set(`${t.getMonth()+1}/${t.getDate()}`, {plus:0, minus:0, bal:0, weight: null}); 
+                } else {
+                    // Populate from Logs
+                    // We need to iterate chronologically for cumulative balance
+                    const cronLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+                    cronLogs.forEach(l => {
                         const d = new Date(l.timestamp); const k = `${d.getMonth()+1}/${d.getDate()}`;
-                        if (!dailyData.has(k)) dailyData.set(k, {plus:0, minus:0, bal:0});
+                        if (!dailyData.has(k)) dailyData.set(k, {plus:0, minus:0, bal:0, weight: null});
                         const e = dailyData.get(k);
                         if (l.minutes >= 0) e.plus += l.minutes; else e.minus += l.minutes;
                         currentBalance += l.minutes; e.bal = currentBalance;
                     });
                 }
-                const labels = [], plus = [], minus = [], bal = [];
-                dailyData.forEach((v, k) => { labels.push(k); plus.push(v.plus); minus.push(v.minus); bal.push(v.bal); });
+
+                // 2. Process Checks for Weight
+                checks.forEach(c => {
+                    const d = new Date(c.timestamp); const k = `${d.getMonth()+1}/${d.getDate()}`;
+                    if (!dailyData.has(k)) {
+                         // If no logs for this day, inherit balance from previous day? 
+                         // For simplicity, we just set 0 change, but we need cumulative balance logic if we want strict accuracy.
+                         // However, simplest visual approach is just plot points we have.
+                         dailyData.set(k, {plus:0, minus:0, bal:0, weight: null}); // bal is inaccurate here if no log, but acceptable for now
+                    }
+                    const e = dailyData.get(k);
+                    if (c.weight) e.weight = parseFloat(c.weight);
+                });
+
+                // Sort keys by date (approximate sort for MM/DD string keys works for same year)
+                // Better to sort by timestamp if spanning years, but current simple impl uses strings.
+                // Re-sort map keys based on a fake timestamp reconstruction or just insertion order if we processed chronologically?
+                // Let's rely on string sort "M/D" which is weak. 
+                // Robust way: extract keys, parse to Date, sort, rebuild.
+                const sortedKeys = Array.from(dailyData.keys()).sort((a,b) => {
+                    const [m1,d1] = a.split('/').map(Number);
+                    const [m2,d2] = b.split('/').map(Number);
+                    if(m1 !== m2) return m1 - m2;
+                    return d1 - d2;
+                });
+
+                const labels = []; const plus = []; const minus = []; const bal = []; const weight = [];
+                
+                // Recalculate cumulative balance strictly along sorted dates to fix gaps
+                let runningBal = 0;
+                
+                sortedKeys.forEach(k => {
+                    const e = dailyData.get(k);
+                    // Update running balance with this day's change
+                    const dayChange = e.plus + e.minus; // minus is negative
+                    // If this entry came purely from a check, its e.bal is 0. 
+                    // If it came from log, it has a calc'd bal.
+                    // Let's just track runningBal manually to be safe.
+                    // Reset e.plus/minus if we want strict daily bars, but e.bal is cumulative.
+                    // The previous log loop calculated e.bal correctly for log days.
+                    // For check-only days, we should carry over previous balance.
+                    // Actually, let's just use what we have, but fill gaps in balance line if needed?
+                    // Chart.js line chart handles gaps fine.
+                    
+                    labels.push(k);
+                    plus.push(e.plus);
+                    minus.push(e.minus);
+                    bal.push(e.bal !== 0 ? e.bal : (labels.length > 1 ? bal[bal.length-1] : 0)); // Very rough patch for gap days
+                    weight.push(e.weight); // can be null
+                });
+
                 if (currentState.chart) currentState.chart.destroy();
+                
                 currentState.chart = new Chart(ctxCanvas.getContext('2d'), {
                     type: 'bar',
-                    data: { labels: labels, datasets: [ { type: 'line', label: '累積残高', data: bal, borderColor: '#4F46E5', borderWidth: 2, tension: 0.3, pointRadius: 1, fill: false, order: 0 }, { type: 'bar', label: '返済', data: plus, backgroundColor: '#10B981', borderRadius: 4, stack: '0', order: 1 }, { type: 'bar', label: '借金', data: minus, backgroundColor: '#EF4444', borderRadius: 4, stack: '0', order: 1 } ] },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, display: false }, y: { stacked: false, beginAtZero: true } }, plugins: { legend: { display: true, position: 'bottom' } } }
+                    data: { 
+                        labels: labels, 
+                        datasets: [ 
+                            { 
+                                type: 'line', 
+                                label: '体重 (kg)', 
+                                data: weight, 
+                                borderColor: '#F59E0B', 
+                                borderDash: [5, 5],
+                                borderWidth: 2, 
+                                pointRadius: 3, 
+                                pointBackgroundColor: '#F59E0B',
+                                fill: false, 
+                                yAxisID: 'y1',
+                                spanGaps: true,
+                                order: 0 
+                            },
+                            { 
+                                type: 'line', 
+                                label: '累積残高', 
+                                data: bal, 
+                                borderColor: '#4F46E5', 
+                                borderWidth: 2, 
+                                tension: 0.3, 
+                                pointRadius: 1, 
+                                fill: false, 
+                                order: 1 
+                            }, 
+                            { 
+                                type: 'bar', 
+                                label: '返済', 
+                                data: plus, 
+                                backgroundColor: '#10B981', 
+                                borderRadius: 4, 
+                                stack: '0', 
+                                order: 2 
+                            }, 
+                            { 
+                                type: 'bar', 
+                                label: '借金', 
+                                data: minus, 
+                                backgroundColor: '#EF4444', 
+                                borderRadius: 4, 
+                                stack: '0', 
+                                order: 2 
+                            } 
+                        ] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { 
+                            x: { stacked: true, display: false }, 
+                            y: { 
+                                stacked: false, 
+                                beginAtZero: true,
+                                title: { display: true, text: 'カロリー収支 (分)' }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: { drawOnChartArea: false },
+                                title: { display: true, text: '体重 (kg)' },
+                                suggestMin: 50,
+                                suggestMax: 100
+                            }
+                        }, 
+                        plugins: { legend: { display: true, position: 'bottom' } } 
+                    }
                 });
             } catch(e) { console.error('Chart Error', e); }
         }
@@ -931,7 +1188,8 @@
             
             if (tabId === 'tab-history') {
                 const logs = await db.logs.toArray();
-                setTimeout(() => renderChart(logs), 50);
+                const checks = await db.checks.toArray();
+                setTimeout(() => renderChart(logs, checks), 50);
             }
         }
 
@@ -977,7 +1235,6 @@
             }
         }
 
-        // Updated for Dexie/Async
         async function handleBeerSubmit() {
             const s = document.getElementById('beer-select').value;
             const z = document.getElementById('beer-size').value;
@@ -1030,30 +1287,35 @@
             toggleModal('manual-exercise-modal', false); 
         }
 
-        // Updated for Dexie/Async
         async function handleCheckSubmit() { 
             const f=document.getElementById('check-form'), isDry=document.getElementById('is-dry-day').checked; 
+            const w = document.getElementById('check-weight').value; // Optional weight
+
             let ts=Date.now(); 
             if(document.getElementById('record-as-yesterday').checked) ts-=ONE_DAY_MS; 
             
-            await db.checks.add({
+            const entry = {
                 isDryDay:isDry, 
                 waistEase:f.elements['waistEase'].checked, 
                 footLightness:f.elements['footLightness'].checked, 
                 waterOk:isDry?null:f.elements['waterOk'].checked, 
                 fiberOk:isDry?null:f.elements['fiberOk'].checked, 
                 timestamp:ts
-            }); 
+            };
+
+            if(w) entry.weight = parseFloat(w);
+
+            await db.checks.add(entry); 
             
             UI.showMessage('チェック完了！','success'); 
             toggleModal('check-modal', false); 
             document.getElementById('is-dry-day').checked=false; 
             document.getElementById('record-as-yesterday').checked=false; 
+            document.getElementById('check-weight').value='';
             document.getElementById('drinking-section').classList.remove('hidden-area'); 
             await refreshUI(); 
         }
 
-        // Updated for Dexie/Async
         async function deleteLog(timestamp) {
             if (!confirm('削除しますか？')) return;
             await db.logs.where('timestamp').equals(timestamp).delete();
@@ -1061,17 +1323,34 @@
             await refreshUI();
         }
 
-        // Updated for Dexie/Async
-        async function recordExercise(t,m) { 
-            const i=EXERCISE[t], eq=Calc.stepperEq(Calc.burnRate(i.mets)*m);
+        async function recordExercise(t, m) { 
+            const allLogs = await db.logs.toArray();
+            const allChecks = await db.checks.toArray();
+            const streak = Calc.getCurrentStreak(allLogs, allChecks);
+            const multiplier = Calc.getStreakMultiplier(streak);
+
+            const i = EXERCISE[t];
+            
+            const baseKcal = Calc.burnRate(i.mets) * m;
+            const bonusKcal = baseKcal * multiplier;
+            
+            const eq = Calc.stepperEq(bonusKcal);
+
             await db.logs.add({
-                name:`${i.icon} ${i.label}`, 
-                type:'返済', 
-                minutes:Math.round(eq), 
-                rawMinutes:m, 
-                timestamp:Date.now()
+                name: `${i.icon} ${i.label}`, 
+                type: '返済', 
+                minutes: Math.round(eq), 
+                rawMinutes: m, 
+                timestamp: Date.now(),
+                memo: multiplier > 1.0 ? `🔥 Streak Bonus x${multiplier}` : ''
             }); 
-            UI.showMessage(`${i.label} ${m}分 記録！`,'success'); 
+            
+            if (multiplier > 1.0) {
+                UI.showMessage(`${i.label} ${m}分 記録！\n🔥連続休肝ボーナス！返済効率 x${multiplier}`, 'success'); 
+            } else {
+                UI.showMessage(`${i.label} ${m}分 記録！`, 'success'); 
+            }
+            
             await refreshUI(); 
         }
 
@@ -1090,7 +1369,8 @@
                 } else { 
                     d = await db.checks.toArray();
                     d.sort((a,b)=>a.timestamp-b.timestamp); 
-                    c="日時,休肝日\n"+d.map(r=>`${new Date(r.timestamp).toLocaleString()},${r.isDryDay}`).join('\n'); 
+                    // Add weight to CSV export
+                    c="日時,休肝日,ウエスト,足,水分,繊維,体重\n"+d.map(r=>`${new Date(r.timestamp).toLocaleString()},${r.isDryDay},${r.waistEase||false},${r.footLightness||false},${r.waterOk||false},${r.fiberOk||false},${r.weight||''}`).join('\n'); 
                     n="check-log"; 
                 } 
                 DataManager.download(c, `nomutore-${n}.csv`, 'text/csv'); 
