@@ -113,7 +113,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v10.3</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v10.4</span>
                 </div>
             </div>
         </div>
@@ -280,11 +280,13 @@
     </div>
 
     <!-- Modals -->
+    <!-- Added max-h-[90vh] and overflow-y-auto to all modal inner divs to fix mobile scrolling issues -->
+    
     <div id="manual-exercise-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
-        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                 <h3 class="text-lg font-bold text-gray-800">🏃‍♀️ 運動手入力</h3>
-                <button onclick="toggleModal('manual-exercise-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button onclick="toggleModal('manual-exercise-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2">&times;</button>
             </div>
             <p class="text-sm text-gray-600 mb-2 font-bold" id="manual-exercise-name">運動名</p>
             <div class="flex items-center mb-8">
@@ -296,27 +298,27 @@
     </div>
 
     <div id="beer-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
-        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+        <div class="bg-white p-5 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                 <h3 class="text-lg font-bold text-gray-800">🍺 飲酒記録 (借金)</h3>
-                <button onclick="toggleModal('beer-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button onclick="toggleModal('beer-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2">&times;</button>
             </div>
             <form id="beer-form" onsubmit="event.preventDefault(); handleBeerSubmit();">
-                <div class="space-y-5 mb-8">
+                <div class="space-y-4 mb-6">
                     <div>
                         <div class="flex justify-between items-end mb-1.5">
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-wide">Beer Style</label>
                             <span class="text-[10px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded" id="beer-select-mode-label"></span>
                         </div>
-                        <select id="beer-select" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+                        <select id="beer-select" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
                     </div>
 
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
                         <input type="text" id="beer-brewery" placeholder="ブルワリー名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
                         <input type="text" id="beer-brand" placeholder="銘柄名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
                     </div>
 
-                    <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 space-y-3">
+                    <div class="bg-yellow-50 p-3 rounded-xl border border-yellow-100 space-y-2">
                         <div class="flex items-center gap-2">
                             <label class="text-xs font-bold text-yellow-600 uppercase">Rating</label>
                             <select id="beer-rating" class="p-1 bg-white border border-yellow-200 rounded text-sm font-bold text-yellow-600 outline-none">
@@ -334,15 +336,15 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
-                            <select id="beer-size" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+                            <select id="beer-size" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
-                            <input type="number" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
+                            <input type="number" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
                         </div>
                     </div>
                     
-                    <div class="flex items-center justify-center pt-2">
+                    <div class="flex items-center justify-center pt-1">
                         <label class="flex items-center space-x-2 cursor-pointer group">
                             <input type="checkbox" id="untappd-check" class="w-5 h-5 text-yellow-500 rounded border-gray-300 focus:ring-yellow-500">
                             <span class="text-xs font-bold text-gray-400 group-hover:text-yellow-600 transition">Untappdで検索して記録する</span>
@@ -355,10 +357,10 @@
     </div>
 
     <div id="check-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
-        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-lg font-bold text-gray-800">✅ デイリーチェック</h3>
-                <button onclick="toggleModal('check-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button onclick="toggleModal('check-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2">&times;</button>
             </div>
             <p class="text-xs text-gray-400 mb-6 font-medium">コンディションと対策を振り返り</p>
             <form id="check-form" onsubmit="event.preventDefault(); handleCheckSubmit();">
@@ -401,10 +403,10 @@
     </div>
 
     <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onclick="event.stopPropagation()">
-        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm" onclick="event.stopPropagation()">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                 <h3 class="text-lg font-bold text-gray-800">⚙️ 設定</h3>
-                <button onclick="toggleModal('settings-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button onclick="toggleModal('settings-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2">&times;</button>
             </div>
             <div class="space-y-6">
                 <div>
@@ -461,7 +463,7 @@
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center p-6 border-b border-gray-100">
                 <h3 class="text-lg font-bold text-gray-800">📖 使い方ガイド</h3>
-                <button onclick="toggleModal('help-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                <button onclick="toggleModal('help-modal', false)" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2">&times;</button>
             </div>
             <div class="p-6 overflow-y-auto space-y-6">
                 <!-- Guide Content -->
