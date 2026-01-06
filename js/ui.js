@@ -2,14 +2,14 @@ import { APP, EXERCISE, CALORIES, SIZE_DATA } from './constants.js';
 import { Calc } from './logic.js';
 import { Store, db } from './store.js';
 
-// アプリケーションの状態（チャートのインスタンスや現在のモードなど）
+// アプリケーションの状態
 export let currentState = { 
     beerMode: 'mode1', 
     chart: null, 
     timerId: null 
 };
 
-// モーダルの開閉関数（main.jsでwindowに登録するためにexport）
+// モーダルの開閉関数
 export const toggleModal = (id, show) => { 
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'block' : 'none'; 
@@ -29,15 +29,34 @@ export const UI = {
         setTimeout(() => mb.classList.add('hidden'), 3000);
     },
 
+    // 今日の日付文字列(YYYY-MM-DD)を取得するヘルパー
+    getTodayString: () => {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    },
+
     // 休肝日チェックボックスの連動表示
     toggleDryDay: (cb) => {
-        document.getElementById('drinking-section').classList.toggle('hidden-area', cb.checked);
+        const section = document.getElementById('drinking-section');
+        if (section) section.classList.toggle('hidden-area', cb.checked);
+    },
+
+    // 飲酒記録モーダルを開く
+    openBeerModal: () => {
+        const dateEl = document.getElementById('beer-date');
+        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        toggleModal('beer-modal', true);
     },
 
     // 健康チェックモーダルを開く
     openCheckModal: () => { 
-        document.getElementById('record-as-yesterday').checked = (new Date().getHours() < 12); 
-        document.getElementById('check-weight').value = ''; // Reset weight input
+        const dateEl = document.getElementById('check-date');
+        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        
+        document.getElementById('check-weight').value = ''; // 体重欄リセット
         toggleModal('check-modal', true); 
     },
 
@@ -46,10 +65,14 @@ export const UI = {
         const select = document.getElementById('exercise-select');
         const label = EXERCISE[select.value] ? EXERCISE[select.value].label : '運動';
         document.getElementById('manual-exercise-name').textContent = label; 
+        
+        const dateEl = document.getElementById('manual-date');
+        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        
         toggleModal('manual-exercise-modal', true); 
     },
 
-    // 設定モーダルを開く（既存値のセット）
+    // 設定モーダルを開く
     openSettings: () => {
         const p = Store.getProfile();
         document.getElementById('weight-input').value = p.weight;
@@ -73,12 +96,14 @@ export const UI = {
     // モード切り替えボタンのテキスト更新
     updateModeButtons: () => {
         const modes = Store.getModes();
-        document.getElementById('btn-mode-1').textContent = `🍺 ${modes.mode1}換算`;
-        document.getElementById('btn-mode-2').textContent = `🍺🍺 ${modes.mode2}換算`;
+        const btn1 = document.getElementById('btn-mode-1');
+        const btn2 = document.getElementById('btn-mode-2');
+        if(btn1) btn1.textContent = `🍺 ${modes.mode1}換算`;
+        if(btn2) btn2.textContent = `🍺🍺 ${modes.mode2}換算`;
     }
 };
 
-// ビール選択肢の生成（設定に基づいて換算時間を再計算）
+// ビール選択肢の生成
 export function updateBeerSelectOptions() { 
     const s = document.getElementById('beer-select'); 
     if (!s) return;
@@ -117,10 +142,8 @@ export function updateBeerSelectOptions() {
 // 描画関連 (Rendering)
 // ==========================================
 
-// メインのUI更新関数（非同期）
 export async function refreshUI() {
     try {
-        // Fetch data from IndexedDB
         const logs = await db.logs.toArray();
         const checks = await db.checks.toArray();
 
@@ -140,6 +163,7 @@ export async function refreshUI() {
 }
 
 function renderLogList(logs) {
+    // 新しい順にソート
     logs.sort((a, b) => b.timestamp - a.timestamp);
     const list = document.getElementById('log-list');
     if (!list) return;
@@ -154,12 +178,15 @@ function renderLogList(logs) {
     const displayRate = Calc.burnRate(baseExData.mets);
     const stepperRate = Calc.burnRate(EXERCISE['stepper'].mets);
 
-    document.getElementById('history-base-label').textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
+    const labelEl = document.getElementById('history-base-label');
+    if(labelEl) labelEl.textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
 
     list.innerHTML = logs.map(log => {
         const isDebt = log.minutes < 0;
         const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
         const signClass = isDebt ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
+        
+        // 日付のフォーマット (例: 10/25 18:30)
         const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         
         let detailHtml = '';
@@ -173,7 +200,6 @@ function renderLogList(logs) {
             const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${log.memo}"</span>` : '';
             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
         } else if (log.minutes > 0 && log.memo) {
-            // Streakボーナスなどのメモ
              detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 rounded px-2 py-1"><span class="text-[10px] text-orange-500 font-bold">${log.memo}</span></div>`;
         }
 
@@ -240,9 +266,10 @@ function renderBeerTank(logs) {
     }
 }
 
+// 【変更点】新しいグレード制に対応した描画ロジック
 function renderLiverRank(checks) {
-    const count = Calc.getDryDayCount(checks);
-    const rank = Calc.getLiverRank(count);
+    // ロジック側で計算されたグレード情報を取得
+    const gradeData = Calc.getRecentGrade(checks);
     
     const card = document.getElementById('liver-rank-card');
     const title = document.getElementById('rank-title');
@@ -252,23 +279,32 @@ function renderLiverRank(checks) {
 
     if(!card) return;
 
-    title.className = `text-xl font-black mt-1 ${rank.color}`;
-    title.textContent = rank.title;
-    countEl.textContent = count;
+    // タイトル (例: S : 神の肝臓)
+    title.className = `text-xl font-black mt-1 ${gradeData.color}`;
+    title.textContent = `${gradeData.rank} : ${gradeData.label}`;
     
-    card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${rank.bg}`;
+    // 直近28日間の休肝日数
+    countEl.textContent = gradeData.current;
+    
+    // 背景色
+    card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${gradeData.bg}`;
 
-    if (rank.next) {
-        const prevTarget = rank.next === 3 ? 0 : (rank.next === 10 ? 3 : (rank.next === 30 ? 10 : (rank.next === 50 ? 30 : 50)));
-        const range = rank.next - prevTarget;
-        const current = count - prevTarget;
-        const percent = Math.min(100, Math.max(5, (current / range) * 100));
+    // プログレスバー（次のランクまでの進捗）
+    if (gradeData.next) {
+        // 前のランクの基準値（プログレスバーの0%地点）
+        const prevTarget = gradeData.rank === 'A' ? 12 : (gradeData.rank === 'B' ? 8 : 0);
+        const range = gradeData.next - prevTarget;
+        const currentInRank = gradeData.current - prevTarget;
+        
+        // 5%〜100%の間でバーを表示
+        const percent = Math.min(100, Math.max(5, (currentInRank / range) * 100));
         
         bar.style.width = `${percent}%`;
-        msg.textContent = `次のランクまであと ${rank.next - count} 日`;
+        msg.textContent = `ランクアップまであと ${gradeData.next - gradeData.current} 日`;
     } else {
+        // 最高ランクの場合
         bar.style.width = '100%';
-        msg.textContent = '最高ランク到達！レジェンド！👑';
+        msg.textContent = '最高ランク到達！キープしよう！👑';
     }
 }
 
@@ -280,8 +316,18 @@ function renderCheckStatus(checks, logs) {
     let targetCheck = null; let type = 'none';
 
     if (checks.length > 0) {
-        if (Calc.isSameDay(checks[0].timestamp, today)) { targetCheck = checks[0]; type = 'today'; }
-        else if (Calc.isSameDay(checks[0].timestamp, yest)) { targetCheck = checks[0]; type = 'yesterday'; }
+        // 最新のチェックを確認
+        // sort済みではない場合を考慮して、timestampで判断すべきだが、
+        // IndexedDBからtoArrayした配列の順序依存。通常はID順（登録順）。
+        // ここでは配列の最後（最新）を見るか、日付マッチを探すのが安全。
+        // ※今回は簡易的に末尾または走査
+        
+        // 配列を後ろから探す
+        for(let i=checks.length-1; i>=0; i--) {
+            const c = checks[i];
+            if (Calc.isSameDay(c.timestamp, today)) { targetCheck = c; type = 'today'; break; }
+            if (Calc.isSameDay(c.timestamp, yest)) { targetCheck = c; type = 'yesterday'; break; }
+        }
     }
 
     if (type !== 'none') {
@@ -296,7 +342,7 @@ function renderCheckStatus(checks, logs) {
 
         status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800 flex items-center">${msg}${weightHtml}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
     } else {
-        const lastDate = checks.length > 0 ? new Date(checks[0].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
+        const lastDate = checks.length > 0 ? new Date(checks[checks.length-1].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
         status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
     }
 }

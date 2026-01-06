@@ -5,27 +5,31 @@ import { UI, currentState, updateBeerSelectOptions, refreshUI, toggleModal } fro
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
+// Helper: 日付文字列(YYYY-MM-DD)を、その日の12:00のTimestampに変換
+const getDateTimestamp = (dateStr) => {
+    if (!dateStr) return Date.now();
+    const d = new Date(dateStr);
+    // 時差トラブルを避けるため正午にセット
+    d.setHours(12, 0, 0, 0); 
+    return d.getTime();
+};
+
 /* ==========================================================================
    Global Window Registration
-   (HTMLの onclick="..." から呼び出せるように window オブジェクトに登録)
    ========================================================================== */
 
-// UI操作用
 window.UI = UI; 
 window.toggleModal = toggleModal;
 
-// タブ切り替え
 window.switchTab = async (tabId) => {
     if (!tabId) return;
     const targetTab = document.getElementById(tabId);
     const targetNav = document.getElementById(`nav-${tabId}`);
     if (!targetTab || !targetNav) return;
 
-    // タブの表示切り替え
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     targetTab.classList.add('active');
     
-    // ナビゲーションボタンのスタイル切り替え
     document.querySelectorAll('.nav-item').forEach(el => { 
         el.classList.remove('text-indigo-600'); 
         el.classList.add('text-gray-400'); 
@@ -33,13 +37,11 @@ window.switchTab = async (tabId) => {
     targetNav.classList.remove('text-gray-400');
     targetNav.classList.add('text-indigo-600');
     
-    // 履歴タブが開かれた場合はグラフ等を再描画
     if (tabId === 'tab-history') {
         refreshUI(); 
     }
 };
 
-// ビール換算モードの切り替え
 window.setBeerMode = (mode) => {
     currentState.beerMode = mode;
     const lBtn = document.getElementById('btn-mode-1');
@@ -58,7 +60,6 @@ window.setBeerMode = (mode) => {
     refreshUI();
 };
 
-// 設定保存
 window.saveSettings = () => {
     const w = parseFloat(document.getElementById('weight-input').value);
     const h = parseFloat(document.getElementById('height-input').value);
@@ -78,12 +79,9 @@ window.saveSettings = () => {
         localStorage.setItem(APP.STORAGE_KEYS.BASE_EXERCISE, be);
         
         toggleModal('settings-modal', false);
-        
-        // 画面の更新
         UI.updateModeButtons();
         updateBeerSelectOptions(); 
         refreshUI();
-        
         UI.showMessage('設定を保存しました', 'success');
     } else {
         UI.showMessage('すべての項目を入力してください', 'error');
@@ -92,6 +90,7 @@ window.saveSettings = () => {
 
 // 飲酒記録（借金）の送信
 window.handleBeerSubmit = async () => {
+    const dateVal = document.getElementById('beer-date').value;
     const s = document.getElementById('beer-select').value;
     const z = document.getElementById('beer-size').value;
     const c = parseFloat(document.getElementById('beer-count').value);
@@ -106,11 +105,14 @@ window.handleBeerSubmit = async () => {
     const kcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
     const min = kcal / Calc.burnRate(EXERCISE['stepper'].mets);
     
+    // 日付指定があればその日付、なければ現在日時
+    const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
+
     await db.logs.add({ 
         name: `${s} x${c}`, 
         type: '借金', 
         minutes: -Math.round(min), 
-        timestamp: Date.now(), 
+        timestamp: ts, 
         brewery: brewery, 
         brand: brand,
         rating: rating,
@@ -138,10 +140,11 @@ window.handleBeerSubmit = async () => {
 
 // 運動手入力の送信
 window.handleManualExerciseSubmit = async () => { 
+    const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
     if(!m) return UI.showMessage('時間を入力','error'); 
     
-    await recordExercise(document.getElementById('exercise-select').value, m); 
+    await recordExercise(document.getElementById('exercise-select').value, m, dateVal); 
     
     document.getElementById('manual-minutes').value=''; 
     toggleModal('manual-exercise-modal', false); 
@@ -150,11 +153,11 @@ window.handleManualExerciseSubmit = async () => {
 // デイリーチェックの送信
 window.handleCheckSubmit = async () => { 
     const f = document.getElementById('check-form');
+    const dateVal = document.getElementById('check-date').value;
     const isDry = document.getElementById('is-dry-day').checked; 
     const w = document.getElementById('check-weight').value;
 
-    let ts = Date.now(); 
-    if(document.getElementById('record-as-yesterday').checked) ts -= ONE_DAY_MS; 
+    const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
     
     const entry = {
         isDryDay: isDry, 
@@ -174,14 +177,12 @@ window.handleCheckSubmit = async () => {
     
     // フォームリセット
     document.getElementById('is-dry-day').checked = false; 
-    document.getElementById('record-as-yesterday').checked = false; 
     document.getElementById('check-weight').value = '';
     document.getElementById('drinking-section').classList.remove('hidden-area'); 
     
     await refreshUI(); 
 };
 
-// ログ削除
 window.deleteLog = async (timestamp) => {
     if (!confirm('削除しますか？')) return;
     await db.logs.where('timestamp').equals(timestamp).delete();
@@ -193,26 +194,26 @@ window.deleteLog = async (timestamp) => {
    Internal Logic & Functions
    ========================================================================== */
 
-// 運動記録の共通処理
-async function recordExercise(t, m) { 
+async function recordExercise(t, m, dateVal = null) { 
     const allLogs = await db.logs.toArray();
     const allChecks = await db.checks.toArray();
     const streak = Calc.getCurrentStreak(allLogs, allChecks);
     const multiplier = Calc.getStreakMultiplier(streak);
 
     const i = EXERCISE[t];
-    
     const baseKcal = Calc.burnRate(i.mets) * m;
     const bonusKcal = baseKcal * multiplier;
-    
     const eq = Calc.stepperEq(bonusKcal);
+
+    // 日付指定判定
+    const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
 
     await db.logs.add({
         name: `${i.icon} ${i.label}`, 
         type: '返済', 
         minutes: Math.round(eq), 
         rawMinutes: m, 
-        timestamp: Date.now(),
+        timestamp: ts,
         memo: multiplier > 1.0 ? `🔥 Streak Bonus x${multiplier}` : ''
     }); 
     
@@ -224,10 +225,8 @@ async function recordExercise(t, m) {
     
     await refreshUI(); 
 }
-// グローバルから呼べるように登録
 window.recordExercise = recordExercise;
 
-// データ管理 (CSV/JSON/Clipboard)
 const DataManager = {
     exportCSV: async (t) => { 
         let d=[], c="", n=""; 
@@ -288,7 +287,6 @@ const DataManager = {
 };
 window.DataManager = DataManager;
 
-// タイマー機能
 const updTm = (st) => { 
     const e = Date.now() - st; 
     const mm = Math.floor(e/60000).toString().padStart(2,'0');
@@ -346,104 +344,56 @@ window.timerControl = {
     }
 };
 
-/* ==========================================================================
-   Initialization & Migration
-   ========================================================================== */
-
-// 旧LocalStorageデータからの移行処理
 async function migrateData() {
     const oldLogs = localStorage.getItem(APP.STORAGE_KEYS.LOGS);
     const oldChecks = localStorage.getItem(APP.STORAGE_KEYS.CHECKS);
-
     if (oldLogs) {
-        try {
-            const logs = JSON.parse(oldLogs);
-            if (Array.isArray(logs) && logs.length > 0) {
-                await db.logs.bulkAdd(logs);
-                console.log('Logs migrated:', logs.length);
-            }
-        } catch (e) { console.error('Migration error (logs)', e); }
+        try { const logs = JSON.parse(oldLogs); if (logs.length > 0) await db.logs.bulkAdd(logs); } catch (e) { console.error(e); }
         localStorage.removeItem(APP.STORAGE_KEYS.LOGS);
     }
-
     if (oldChecks) {
-        try {
-            const checks = JSON.parse(oldChecks);
-            if (Array.isArray(checks) && checks.length > 0) {
-                await db.checks.bulkAdd(checks);
-                console.log('Checks migrated:', checks.length);
-            }
-        } catch (e) { console.error('Migration error (checks)', e); }
+        try { const checks = JSON.parse(oldChecks); if (checks.length > 0) await db.checks.bulkAdd(checks); } catch (e) { console.error(e); }
         localStorage.removeItem(APP.STORAGE_KEYS.CHECKS);
     }
 }
 
-// アプリ起動時の初期化
 document.addEventListener('DOMContentLoaded', async () => {
-    // データの移行（必要な場合）
     await migrateData();
 
-    // 運動セレクトボックスの初期化
     const exSelect = document.getElementById('exercise-select'); 
     Object.keys(EXERCISE).forEach(k => { 
         const o = document.createElement('option'); 
-        o.value = k; 
-        o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; 
-        exSelect.appendChild(o); 
+        o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; exSelect.appendChild(o); 
     });
     
-    // 設定画面の運動セレクトボックスも同様に
     const settingExSelect = document.getElementById('setting-base-exercise');
     if (settingExSelect) {
         settingExSelect.innerHTML = '';
-        Object.keys(EXERCISE).forEach(k => {
-            const o = document.createElement('option');
-            o.value = k;
-            o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`;
-            settingExSelect.appendChild(o);
-        });
+        Object.keys(EXERCISE).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; settingExSelect.appendChild(o); });
     }
 
-    // ビールサイズセレクトボックスの初期化
     const zs = document.getElementById('beer-size'); 
     Object.keys(SIZE_DATA).forEach(k => { 
-        const o = document.createElement('option'); 
-        o.value = k; 
-        o.textContent = SIZE_DATA[k].label; 
-        if(k === '350') o.selected = true; 
-        zs.appendChild(o); 
+        const o = document.createElement('option'); o.value = k; o.textContent = SIZE_DATA[k].label; 
+        if(k === '350') o.selected = true; zs.appendChild(o); 
     });
 
-    // プロフィール設定の読み込み
     const p = Store.getProfile();
     document.getElementById('weight-input').value = p.weight;
     document.getElementById('height-input').value = p.height;
     document.getElementById('age-input').value = p.age;
     document.getElementById('gender-input').value = p.gender;
 
-    // UI初期状態の設定
     UI.updateModeButtons();
     window.setBeerMode('mode1');
     updateBeerSelectOptions(); 
     
-    // タイマー復帰 or タブ初期化
     const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
-    if(st) { 
-        window.timerControl.start(); 
-        window.switchTab('tab-record'); 
-    } else { 
-        window.switchTab('tab-home'); 
-    }
+    if(st) { window.timerControl.start(); window.switchTab('tab-record'); } else { window.switchTab('tab-home'); }
 
-    // データの描画
     await refreshUI();
 });
 
-// Service Worker Registration for PWA
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js')
-            .then(reg => console.log('Service Worker registered!', reg))
-            .catch(err => console.log('Service Worker registration failed: ', err));
-    });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 }

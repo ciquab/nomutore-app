@@ -47,12 +47,29 @@ export const Calc = {
 
     hasAlcoholLog: (logs, timestamp) => logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp)),
     getDryDayCount: (checks) => checks.filter(c => c.isDryDay).length,
-    getLiverRank: (count) => {
-        if (count >= 100) return { title: '神の肝臓 👼', color: 'text-purple-600', bg: 'bg-purple-100', next: null };
-        if (count >= 50) return { title: '鉄の肝臓 🛡️', color: 'text-slate-700', bg: 'bg-slate-200', next: 100 };
-        if (count >= 30) return { title: 'プロ休肝ラー 🧘', color: 'text-indigo-600', bg: 'bg-indigo-100', next: 50 };
-        if (count >= 10) return { title: '健康マイスター 🌿', color: 'text-green-600', bg: 'bg-green-100', next: 30 };
-        if (count >= 3) return { title: '見習い 🔰', color: 'text-blue-600', bg: 'bg-blue-100', next: 10 };
-        return { title: 'たまご 🥚', color: 'text-gray-500', bg: 'bg-gray-100', next: 3 };
+    // 【変更】累計ランク判定を削除し、直近28日間のグレード判定を追加
+    getRecentGrade: (checks) => {
+        const NOW = new Date();
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const PERIOD_DAYS = 28; // 4週間
+        
+        // 28日前（の0時0分）を計算
+        const cutoffDate = new Date(NOW.getTime() - (PERIOD_DAYS * DAY_MS));
+        cutoffDate.setHours(0, 0, 0, 0);
+
+        // 直近28日以内の休肝日をカウント
+        const recentDryDays = checks.filter(c => {
+            return c.isDryDay && new Date(c.timestamp) >= cutoffDate;
+        }).length;
+
+        // グレード判定ロジック
+        // S: 20日以上 (週5日ペース)
+        // A: 12日以上 (週3日ペース)
+        // B: 8日以上 (週2日ペース)
+        // C: それ未満
+        if (recentDryDays >= 20) return { rank: 'S', label: '神の肝臓 👼', color: 'text-purple-600', bg: 'bg-purple-100', next: null, current: recentDryDays };
+        if (recentDryDays >= 12) return { rank: 'A', label: '鉄の肝臓 🛡️', color: 'text-indigo-600', bg: 'bg-indigo-100', next: 20, current: recentDryDays };
+        if (recentDryDays >= 8)  return { rank: 'B', label: '健康志向 🌿', color: 'text-green-600', bg: 'bg-green-100', next: 12, current: recentDryDays };
+        return { rank: 'C', label: '要注意 ⚠️', color: 'text-red-500', bg: 'bg-red-50', next: 8, current: recentDryDays };
     }
 };
