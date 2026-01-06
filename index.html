@@ -69,7 +69,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v11.0</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.0</span>
                 </div>
             </div>
         </div>
@@ -119,12 +119,12 @@
             <div id="liver-rank-card" class="mx-2 mt-4 mb-2 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
                 <div class="flex justify-between items-end mb-2 relative z-10">
                     <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LIVER RANK (28 DAYS)</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LIVER RANK</p>
                         <h3 class="text-xl font-black mt-1" id="rank-title">Loading...</h3>
                     </div>
                     <div class="text-right">
                         <span class="text-2xl font-black text-gray-800" id="dry-count">0</span>
-                        <span class="text-xs font-bold text-gray-400">日 (直近)</span>
+                        <span class="text-xs font-bold text-gray-400">日</span>
                     </div>
                 </div>
                 <div class="w-full bg-gray-100 rounded-full h-2 mb-1">
@@ -179,6 +179,9 @@
                     <button id="stop-stepper-btn" onclick="timerControl.stop()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-red-200 shadow-lg transition transform active:scale-95 hidden text-lg animate-pulse">STOP & SAVE</button>
                 </div>
             </div>
+
+            <div id="quick-input-area" class="flex gap-2 mb-2 px-1"></div>
+
             <div class="grid grid-cols-2 gap-4 mb-8">
                 <button onclick="UI.openBeerModal()" class="bg-white border border-gray-100 text-gray-700 font-bold py-4 rounded-2xl shadow-sm transition transform active:scale-95 flex flex-col items-center justify-center hover:bg-gray-50">
                     <span class="text-3xl mb-1">🍺</span><span class="text-xs text-gray-400 font-bold mt-1">RECORD DEBT</span><span class="text-sm">飲酒を記録</span>
@@ -431,7 +434,6 @@
                         基礎代謝に基づき、飲んだビール分を運動でチャラにする健康管理アプリです。
                     </p>
                 </section>
-                
                 <section>
                     <h4 class="text-sm font-bold text-indigo-600 mb-2">⚙️ STEP 1: 設定</h4>
                     <p class="text-xs text-gray-600 leading-relaxed">
@@ -500,11 +502,17 @@
                         </table>
                     </div>
                 </section>
-<section>
+                <section>
                     <h4 class="text-sm font-bold text-indigo-600 mb-2">✨ 新機能: ランク制</h4>
                     <p class="text-xs text-gray-600 leading-relaxed">
                         **直近28日間の休肝日率**でランクが決まります（S, A, B...）。<br>
-                        過去の日付で記録を修正しても、自動的に再計算されます。
+                        開始から28日未満のルーキー期間は、日数ではなく成功率で判定されるので、始めたばかりでも上位ランクが狙えます！
+                    </p>
+                </section>
+                <section>
+                    <h4 class="text-sm font-bold text-indigo-600 mb-2">⚡️ 新機能: いつものボタン</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        飲酒記録画面に、よく飲むスタイルとサイズの組み合わせが自動でボタンとして表示されます。ワンタップで入力できます。
                     </p>
                 </section>
                 </div>

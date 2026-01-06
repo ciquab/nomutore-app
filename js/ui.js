@@ -2,30 +2,38 @@ import { APP, EXERCISE, CALORIES, SIZE_DATA } from './constants.js';
 import { Calc } from './logic.js';
 import { Store, db } from './store.js';
 
-// アプリケーションの状態
 export let currentState = { 
     beerMode: 'mode1', 
     chart: null, 
     timerId: null 
 };
 
-// モーダルの開閉関数
+// XSS対策: HTMLエスケープ関数
+const escapeHtml = (str) => {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[m];
+    });
+};
+
 export const toggleModal = (id, show) => { 
     const el = document.getElementById(id);
     if (el) {
         if (show) {
-            el.classList.remove('hidden'); // hiddenを消して表示(flexが効く)
+            el.classList.remove('hidden');
         } else {
-            el.classList.add('hidden');    // hiddenを付けて非表示
+            el.classList.add('hidden');
         }
-        // 念のためインラインスタイルが残っていたら消す
-        el.style.display = ''; 
     }
 };
 
-// UI操作系オブジェクト
 export const UI = {
-    // トーストメッセージ表示
     showMessage: (msg, type) => {
         const mb = document.getElementById('message-box');
         if (!mb) return;
@@ -37,7 +45,6 @@ export const UI = {
         setTimeout(() => mb.classList.add('hidden'), 3000);
     },
 
-    // 今日の日付文字列(YYYY-MM-DD)を取得するヘルパー
     getTodayString: () => {
         const d = new Date();
         const y = d.getFullYear();
@@ -46,41 +53,41 @@ export const UI = {
         return `${y}-${m}-${day}`;
     },
 
-    // 休肝日チェックボックスの連動表示
     toggleDryDay: (cb) => {
         const section = document.getElementById('drinking-section');
         if (section) section.classList.toggle('hidden-area', cb.checked);
     },
 
-    // 飲酒記録モーダルを開く
-    openBeerModal: () => {
+    openBeerModal: (style = null, size = null) => {
         const dateEl = document.getElementById('beer-date');
-        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        if (dateEl) dateEl.value = UI.getTodayString();
+        
+        // クイック記録からの呼び出し対応
+        if (style) document.getElementById('beer-select').value = style;
+        if (size) document.getElementById('beer-size').value = size;
+
         toggleModal('beer-modal', true);
     },
 
-    // 健康チェックモーダルを開く
     openCheckModal: () => { 
         const dateEl = document.getElementById('check-date');
-        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        if (dateEl) dateEl.value = UI.getTodayString();
         
-        document.getElementById('check-weight').value = ''; // 体重欄リセット
+        document.getElementById('check-weight').value = '';
         toggleModal('check-modal', true); 
     },
 
-    // 運動手入力モーダルを開く
     openManualInput: () => { 
         const select = document.getElementById('exercise-select');
         const label = EXERCISE[select.value] ? EXERCISE[select.value].label : '運動';
         document.getElementById('manual-exercise-name').textContent = label; 
         
         const dateEl = document.getElementById('manual-date');
-        if (dateEl) dateEl.value = UI.getTodayString(); // 今日の日付をセット
+        if (dateEl) dateEl.value = UI.getTodayString();
         
         toggleModal('manual-exercise-modal', true); 
     },
 
-    // 設定モーダルを開く
     openSettings: () => {
         const p = Store.getProfile();
         document.getElementById('weight-input').value = p.weight;
@@ -96,12 +103,10 @@ export const UI = {
         toggleModal('settings-modal', true);
     },
 
-    // ヘルプモーダルを開く
     openHelp: () => {
         toggleModal('help-modal', true);
     },
 
-    // モード切り替えボタンのテキスト更新
     updateModeButtons: () => {
         const modes = Store.getModes();
         const btn1 = document.getElementById('btn-mode-1');
@@ -111,7 +116,6 @@ export const UI = {
     }
 };
 
-// ビール選択肢の生成
 export function updateBeerSelectOptions() { 
     const s = document.getElementById('beer-select'); 
     if (!s) return;
@@ -132,7 +136,6 @@ export function updateBeerSelectOptions() {
         s.appendChild(o); 
     }); 
     
-    // 設定モーダル内のセレクトボックスも更新
     const m1 = document.getElementById('setting-mode-1'); 
     const m2 = document.getElementById('setting-mode-2'); 
     
@@ -146,10 +149,6 @@ export function updateBeerSelectOptions() {
     }
 }
 
-// ==========================================
-// 描画関連 (Rendering)
-// ==========================================
-
 export async function refreshUI() {
     try {
         const logs = await db.logs.toArray();
@@ -158,10 +157,10 @@ export async function refreshUI() {
         renderLogList(logs);
         renderBeerTank(logs);
         renderCheckStatus(checks, logs);
-        renderLiverRank(checks);
+        renderLiverRank(checks, logs); // logsも渡す
         renderWeeklyAndHeatUp(logs, checks);
+        renderQuickButtons(logs); // クイックボタン更新
         
-        // 履歴タブが開いている場合のみチャートを描画
         if(document.getElementById('tab-history').classList.contains('active')) {
             renderChart(logs, checks);
         }
@@ -170,8 +169,46 @@ export async function refreshUI() {
     }
 }
 
+// 履歴から「よく飲むセット」ボタンを生成
+function renderQuickButtons(logs) {
+    const container = document.getElementById('quick-input-area');
+    if (!container) return;
+    
+    // スタイルとサイズの情報を集計 (styleプロパティがあるログのみ)
+    const counts = {};
+    logs.forEach(l => {
+        if (l.style && l.size) {
+            const key = `${l.style}|${l.size}`;
+            counts[key] = (counts[key] || 0) + 1;
+        }
+    });
+
+    // 回数が多い順にトップ2を取得
+    const topShortcuts = Object.keys(counts)
+        .sort((a, b) => counts[b] - counts[a])
+        .slice(0, 2)
+        .map(key => {
+            const [style, size] = key.split('|');
+            return { style, size };
+        });
+
+    if (topShortcuts.length === 0) {
+        container.innerHTML = ''; // 履歴がない場合は何も表示しない
+        return;
+    }
+
+    container.innerHTML = topShortcuts.map(item => {
+        const sizeLabel = SIZE_DATA[item.size] ? SIZE_DATA[item.size].label.replace(/ \(.*\)/, '') : item.size;
+        return `<button onclick="UI.openBeerModal('${item.style}', '${item.size}')" 
+            class="flex-1 bg-white border border-indigo-100 text-indigo-600 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 text-xs flex flex-col items-center justify-center transition active:scale-95">
+            <span class="mb-0.5 text-[10px] text-indigo-400 uppercase">いつもの</span>
+            <span>${item.style}</span>
+            <span class="text-[10px] opacity-70">${sizeLabel}</span>
+        </button>`;
+    }).join('');
+}
+
 function renderLogList(logs) {
-    // 新しい順にソート
     logs.sort((a, b) => b.timestamp - a.timestamp);
     const list = document.getElementById('log-list');
     if (!list) return;
@@ -194,30 +231,31 @@ function renderLogList(logs) {
         const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
         const signClass = isDebt ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
         
-        // 日付のフォーマット (例: 10/25 18:30)
         const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         
         let detailHtml = '';
         if (log.brewery || log.brand) {
-            detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${log.brewery||''}</span> <span class="text-gray-600">${log.brand||''}</span></p>`;
+            // escapeHtmlでXSS対策
+            detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${escapeHtml(log.brewery)||''}</span> <span class="text-gray-600">${escapeHtml(log.brand)||''}</span></p>`;
         }
         
         if (log.minutes < 0 && (log.rating > 0 || log.memo)) {
             const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
             const ratingDisplay = log.rating > 0 ? `<span class="text-yellow-500 text-[10px] mr-2">${stars}</span>` : '';
-            const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${log.memo}"</span>` : '';
+            // escapeHtmlでXSS対策
+            const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${escapeHtml(log.memo)}"</span>` : '';
             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
         } else if (log.minutes > 0 && log.memo) {
-             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 rounded px-2 py-1"><span class="text-[10px] text-orange-500 font-bold">${log.memo}</span></div>`;
+             // escapeHtmlでXSS対策
+             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 rounded px-2 py-1"><span class="text-[10px] text-orange-500 font-bold">${escapeHtml(log.memo)}</span></div>`;
         }
 
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        // 注意: deleteLog は main.js で window に登録されている前提
         return `<div class="flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50 group">
                     <div class="flex-grow min-w-0 pr-2">
-                        <p class="font-semibold text-sm text-gray-800 truncate">${log.name}</p>
+                        <p class="font-semibold text-sm text-gray-800 truncate">${escapeHtml(log.name)}</p>
                         ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
@@ -274,10 +312,9 @@ function renderBeerTank(logs) {
     }
 }
 
-// 【変更点】新しいグレード制に対応した描画ロジック
-function renderLiverRank(checks) {
-    // ロジック側で計算されたグレード情報を取得
-    const gradeData = Calc.getRecentGrade(checks);
+function renderLiverRank(checks, logs) {
+    // ログ情報も渡して、開始日を計算できるようにする
+    const gradeData = Calc.getRecentGrade(checks, logs);
     
     const card = document.getElementById('liver-rank-card');
     const title = document.getElementById('rank-title');
@@ -287,30 +324,29 @@ function renderLiverRank(checks) {
 
     if(!card) return;
 
-    // タイトル (例: S : 神の肝臓)
     title.className = `text-xl font-black mt-1 ${gradeData.color}`;
     title.textContent = `${gradeData.rank} : ${gradeData.label}`;
     
-    // 直近28日間の休肝日数
     countEl.textContent = gradeData.current;
     
-    // 背景色
     card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${gradeData.bg}`;
 
-    // プログレスバー（次のランクまでの進捗）
     if (gradeData.next) {
-        // 前のランクの基準値（プログレスバーの0%地点）
-        const prevTarget = gradeData.rank === 'A' ? 12 : (gradeData.rank === 'B' ? 8 : 0);
-        const range = gradeData.next - prevTarget;
-        const currentInRank = gradeData.current - prevTarget;
-        
-        // 5%〜100%の間でバーを表示
-        const percent = Math.min(100, Math.max(5, (currentInRank / range) * 100));
-        
-        bar.style.width = `${percent}%`;
-        msg.textContent = `ランクアップまであと ${gradeData.next - gradeData.current} 日`;
+        // プログレスバーの計算（ルーキーモードの場合は率、通常は日数）
+        let percent = 0;
+        if (gradeData.isRookie) {
+             // ルーキーモード: 目標率に対する達成率
+             percent = (gradeData.rawRate / gradeData.targetRate) * 100;
+             msg.textContent = `ランクアップまであと少し！ (現在 ${Math.round(gradeData.rawRate * 100)}%)`;
+        } else {
+            const prevTarget = gradeData.rank === 'A' ? 12 : (gradeData.rank === 'B' ? 8 : 0);
+            const range = gradeData.next - prevTarget;
+            const currentInRank = gradeData.current - prevTarget;
+            percent = (currentInRank / range) * 100;
+            msg.textContent = `ランクアップまであと ${gradeData.next - gradeData.current} 日`;
+        }
+        bar.style.width = `${Math.min(100, Math.max(5, percent))}%`;
     } else {
-        // 最高ランクの場合
         bar.style.width = '100%';
         msg.textContent = '最高ランク到達！キープしよう！👑';
     }
@@ -324,13 +360,6 @@ function renderCheckStatus(checks, logs) {
     let targetCheck = null; let type = 'none';
 
     if (checks.length > 0) {
-        // 最新のチェックを確認
-        // sort済みではない場合を考慮して、timestampで判断すべきだが、
-        // IndexedDBからtoArrayした配列の順序依存。通常はID順（登録順）。
-        // ここでは配列の最後（最新）を見るか、日付マッチを探すのが安全。
-        // ※今回は簡易的に末尾または走査
-        
-        // 配列を後ろから探す
         for(let i=checks.length-1; i>=0; i--) {
             const c = checks[i];
             if (Calc.isSameDay(c.timestamp, today)) { targetCheck = c; type = 'today'; break; }

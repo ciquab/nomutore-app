@@ -9,7 +9,6 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const getDateTimestamp = (dateStr) => {
     if (!dateStr) return Date.now();
     const d = new Date(dateStr);
-    // 時差トラブルを避けるため正午にセット
     d.setHours(12, 0, 0, 0); 
     return d.getTime();
 };
@@ -111,6 +110,8 @@ window.handleBeerSubmit = async () => {
     await db.logs.add({ 
         name: `${s} x${c}`, 
         type: '借金', 
+        style: s, // クイック記録用に保存
+        size: z,  // クイック記録用に保存
         minutes: -Math.round(min), 
         timestamp: ts, 
         brewery: brewery, 
@@ -129,6 +130,7 @@ window.handleBeerSubmit = async () => {
     document.getElementById('beer-rating').value = '0';
     document.getElementById('beer-memo').value = '';
     document.getElementById('untappd-check').checked = false;
+    document.getElementById('beer-count').value = '1';
 
     if (useUntappd) {
         let searchTerm = brand;
@@ -138,7 +140,6 @@ window.handleBeerSubmit = async () => {
     }
 };
 
-// 運動手入力の送信
 window.handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
@@ -150,7 +151,6 @@ window.handleManualExerciseSubmit = async () => {
     toggleModal('manual-exercise-modal', false); 
 };
 
-// デイリーチェックの送信
 window.handleCheckSubmit = async () => { 
     const f = document.getElementById('check-form');
     const dateVal = document.getElementById('check-date').value;
@@ -175,7 +175,6 @@ window.handleCheckSubmit = async () => {
     UI.showMessage('チェック完了！','success'); 
     toggleModal('check-modal', false); 
     
-    // フォームリセット
     document.getElementById('is-dry-day').checked = false; 
     document.getElementById('check-weight').value = '';
     document.getElementById('drinking-section').classList.remove('hidden-area'); 
@@ -205,7 +204,6 @@ async function recordExercise(t, m, dateVal = null) {
     const bonusKcal = baseKcal * multiplier;
     const eq = Calc.stepperEq(bonusKcal);
 
-    // 日付指定判定
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
 
     await db.logs.add({
