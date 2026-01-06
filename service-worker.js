@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomutore-v13';
+const CACHE_NAME = 'nomutore-v14';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
