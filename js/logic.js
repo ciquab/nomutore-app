@@ -1,5 +1,7 @@
 import { Store } from './store.js';
 import { EXERCISE } from './constants.js';
+// Day.js をCDNからインポート (ES Modules)
+import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
 export const Calc = {
     getBMR: () => {
@@ -17,11 +19,20 @@ export const Calc = {
         return (bmr / 24 * netMets) / 60;
     },
     stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
-    isSameDay: (ts1, ts2) => { const d1 = new Date(ts1), d2 = new Date(ts2); return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate(); },
+    
+    // Day.js を使用して日付が同じかどうかを判定 ('day'単位で比較)
+    isSameDay: (ts1, ts2) => dayjs(ts1).isSame(dayjs(ts2), 'day'),
     
     getDayStatus: (date, logs, checks) => {
-        const hasDrink = logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, date));
-        const isDryCheck = checks.some(c => c.isDryDay && Calc.isSameDay(c.timestamp, date));
+        // dateはDay.jsオブジェクトまたはDateオブジェクト等
+        const targetDay = dayjs(date);
+        
+        // logsの中で、ターゲット日と同じ日付の「借金(minutes < 0)」があるか
+        const hasDrink = logs.some(l => l.minutes < 0 && targetDay.isSame(dayjs(l.timestamp), 'day'));
+        
+        // checksの中で、ターゲット日と同じ日付の「休肝日フラグ」があるか
+        const isDryCheck = checks.some(c => c.isDryDay && targetDay.isSame(dayjs(c.timestamp), 'day'));
+        
         if (hasDrink) return 'drink';
         if (isDryCheck) return 'dry';
         return 'unknown';
@@ -29,10 +40,11 @@ export const Calc = {
 
     getCurrentStreak: (logs, checks) => {
         let streak = 0;
-        const today = new Date();
+        const today = dayjs(); // 本日
+        
+        // 過去30日分遡ってチェック
         for (let i = 1; i <= 30; i++) {
-            const d = new Date();
-            d.setDate(today.getDate() - i);
+            const d = today.subtract(i, 'day'); // Day.jsで日付を引き算
             const status = Calc.getDayStatus(d, logs, checks);
             if (status === 'dry') streak++; else break;
         }
@@ -45,28 +57,32 @@ export const Calc = {
         return 1.0;
     },
 
-    hasAlcoholLog: (logs, timestamp) => logs.some(l => l.minutes < 0 && Calc.isSameDay(l.timestamp, timestamp)),
+    hasAlcoholLog: (logs, timestamp) => {
+        const target = dayjs(timestamp);
+        return logs.some(l => l.minutes < 0 && target.isSame(dayjs(l.timestamp), 'day'));
+    },
+    
     getDryDayCount: (checks) => checks.filter(c => c.isDryDay).length,
 
     // 【改善】ルーキー救済対応のグレード判定
     getRecentGrade: (checks, logs = []) => {
-        const NOW = new Date();
-        const DAY_MS = 24 * 60 * 60 * 1000;
+        const NOW = dayjs();
         const PERIOD_DAYS = 28; // 4週間
         
         // 最初の記録日を探す（開始日判定）
-        let startTs = NOW.getTime();
+        let startTs = NOW.valueOf();
         if (checks.length > 0) startTs = Math.min(startTs, checks[0].timestamp);
-        if (logs.length > 0) startTs = Math.min(startTs, logs[logs.length-1].timestamp); // logsは新しい順になっている場合が多いが念のため末尾も確認
+        if (logs.length > 0) startTs = Math.min(startTs, logs[logs.length-1].timestamp); 
 
-        const daysSinceStart = Math.max(1, Math.floor((NOW.getTime() - startTs) / DAY_MS));
+        // 開始からの日数をDay.jsで計算 (diff)
+        const daysSinceStart = Math.max(1, NOW.diff(dayjs(startTs), 'day'));
         
         // 直近28日以内の休肝日をカウント
-        const cutoffDate = new Date(NOW.getTime() - (PERIOD_DAYS * DAY_MS));
-        cutoffDate.setHours(0, 0, 0, 0);
+        // cutoffDate = 本日 - 28日
+        const cutoffDate = NOW.subtract(PERIOD_DAYS, 'day').startOf('day');
 
         const recentDryDays = checks.filter(c => {
-            return c.isDryDay && new Date(c.timestamp) >= cutoffDate;
+            return c.isDryDay && dayjs(c.timestamp).isAfter(cutoffDate);
         }).length;
 
         // ルーキーモード (開始28日未満)

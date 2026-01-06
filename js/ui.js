@@ -1,12 +1,22 @@
 import { APP, EXERCISE, CALORIES, SIZE_DATA } from './constants.js';
 import { Calc } from './logic.js';
 import { Store, db } from './store.js';
+// Day.js をCDNからインポート
+import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
+// 紙吹雪ライブラリ
+import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm';
 
 export let currentState = { 
     beerMode: 'mode1', 
     chart: null, 
     timerId: null,
-    chartRange: '1w' // デフォルトは1週間
+    chartRange: '1w'
+};
+
+// DOM要素のキャッシュ用オブジェクト
+const DOM = {
+    isInitialized: false,
+    elements: {}
 };
 
 // XSS対策: HTMLエスケープ関数
@@ -26,17 +36,137 @@ const escapeHtml = (str) => {
 export const toggleModal = (id, show) => { 
     const el = document.getElementById(id);
     if (el) {
-        if (show) {
-            el.classList.remove('hidden');
-        } else {
-            el.classList.add('hidden');
-        }
+        if (show) el.classList.remove('hidden');
+        else el.classList.add('hidden');
     }
 };
 
 export const UI = {
+    initDOM: () => {
+        if (DOM.isInitialized) return;
+        
+        const ids = [
+            'message-box', 'drinking-section', 
+            'beer-date', 'beer-select', 'beer-size', 'beer-count',
+            'beer-input-preset', 'beer-input-custom',
+            'custom-abv', 'custom-amount', 
+            'tab-beer-preset', 'tab-beer-custom',
+            'check-date', 'check-weight', 
+            'manual-exercise-name', 'manual-date', 
+            'weight-input', 'height-input', 'age-input', 'gender-input',
+            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input',
+            'btn-mode-1', 'btn-mode-2', 
+            'tank-liquid', 'tank-empty-icon', 'tank-cans', 'tank-minutes', 'tank-message',
+            'log-list', 'history-base-label',
+            'liver-rank-card', 'rank-title', 'dry-count', 'rank-progress', 'rank-next-msg',
+            'check-status', 'streak-count', 'streak-badge', 'weekly-stamps', 'weekly-status-text',
+            'chart-filters', 'quick-input-area', 'beer-select-mode-label',
+            'tab-history' // 履歴タブコンテナ
+        ];
+
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) DOM.elements[id] = el;
+        });
+        
+        UI.injectPresetAbvInput();
+        // 【追加】ヒートマップ用のコンテナを履歴タブに注入
+        UI.injectHeatmapContainer();
+
+        DOM.isInitialized = true;
+    },
+
+    injectPresetAbvInput: () => {
+        const sizeSelect = DOM.elements['beer-size'];
+        if (!sizeSelect || document.getElementById('preset-abv-container')) return;
+
+        const container = document.createElement('div');
+        container.id = 'preset-abv-container';
+        container.className = "mb-4";
+        container.innerHTML = `
+            <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                度数 (ABV %) <span class="text-xs font-normal text-gray-500">※変更でカロリー自動補正</span>
+            </label>
+            <div class="relative">
+                <input type="number" id="preset-abv" step="0.1" placeholder="5.0" 
+                    class="shadow-sm appearance-none border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded w-full py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                <span class="absolute right-3 top-3 text-gray-400 font-bold">%</span>
+            </div>
+        `;
+
+        sizeSelect.parentNode.parentNode.insertBefore(container, DOM.elements['beer-count'].parentNode);
+        DOM.elements['preset-abv'] = document.getElementById('preset-abv');
+    },
+
+    // 【追加】ヒートマップのコンテナと凡例をDOMに追加
+    injectHeatmapContainer: () => {
+        const historyTab = DOM.elements['tab-history'];
+        // ログリストの直前に挿入したいが、構造上chart-filtersの上あたりが良い
+        const target = document.getElementById('chart-container');
+        if (!historyTab || !target || document.getElementById('heatmap-wrapper')) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'heatmap-wrapper';
+        wrapper.className = "mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4";
+        
+        wrapper.innerHTML = `
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex justify-between items-center">
+                <span>Continuity (Last 90 Days)</span>
+                <span class="text-[10px] font-normal">草を生やそう🌿</span>
+            </h3>
+            
+            <div id="heatmap-grid" class="grid grid-cols-7 gap-1 mb-3">
+                <div class="text-[10px] text-center text-gray-300">日</div>
+                <div class="text-[10px] text-center text-gray-300">月</div>
+                <div class="text-[10px] text-center text-gray-300">火</div>
+                <div class="text-[10px] text-center text-gray-300">水</div>
+                <div class="text-[10px] text-center text-gray-300">木</div>
+                <div class="text-[10px] text-center text-gray-300">金</div>
+                <div class="text-[10px] text-center text-gray-300">土</div>
+                </div>
+
+            <div class="flex flex-wrap justify-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+                <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 mr-1"></span>休肝+運動</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-green-400 mr-1"></span>休肝日</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-blue-400 mr-1"></span>飲酒+運動</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-red-400 mr-1"></span>飲酒のみ</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-cyan-400 mr-1"></span>運動のみ</div>
+            </div>
+        `;
+
+        // グラフエリアの前に挿入
+        target.parentNode.insertBefore(wrapper, target);
+        DOM.elements['heatmap-grid'] = document.getElementById('heatmap-grid');
+    },
+
+    showConfetti: () => {
+        const duration = 2000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+            confetti({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#10B981', '#F59E0B', '#6366F1']
+            });
+            confetti({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#10B981', '#F59E0B', '#6366F1']
+            });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    },
+
     showMessage: (msg, type) => {
-        const mb = document.getElementById('message-box');
+        const mb = DOM.elements['message-box'] || document.getElementById('message-box');
         if (!mb) return;
         
         mb.textContent = msg; 
@@ -46,15 +176,8 @@ export const UI = {
         setTimeout(() => mb.classList.add('hidden'), 3000);
     },
 
-    getTodayString: () => {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = (d.getMonth() + 1).toString().padStart(2, '0');
-        const day = d.getDate().toString().padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    },
+    getTodayString: () => dayjs().format('YYYY-MM-DD'),
 
-    // テーマ適用ロジック
     applyTheme: (theme) => {
         const root = document.documentElement;
         const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -67,72 +190,75 @@ export const UI = {
     },
 
     toggleDryDay: (cb) => {
-        const section = document.getElementById('drinking-section');
+        const section = DOM.elements['drinking-section'];
         if (section) section.classList.toggle('hidden-area', cb.checked);
     },
 
     openBeerModal: (style = null, size = null) => {
-        const dateEl = document.getElementById('beer-date');
+        const dateEl = DOM.elements['beer-date'];
         if (dateEl) dateEl.value = UI.getTodayString();
         
-        // クイック記録からの呼び出し対応
-        const styleSelect = document.getElementById('beer-select');
-        const sizeSelect = document.getElementById('beer-size');
+        const styleSelect = DOM.elements['beer-select'];
+        const sizeSelect = DOM.elements['beer-size'];
 
-        if (style && styleSelect) styleSelect.value = style;
-        else if (styleSelect) styleSelect.value = '';
+        if (style && styleSelect) {
+            styleSelect.value = style;
+            styleSelect.dispatchEvent(new Event('change'));
+        } else if (styleSelect) {
+            styleSelect.value = '';
+        }
 
         if (size && sizeSelect) sizeSelect.value = size;
         else if (sizeSelect) sizeSelect.value = '350';
         
-        // デフォルトはプリセットモードで開く
         UI.switchBeerInputTab('preset');
         
-        // カスタム入力値はリセット
-        document.getElementById('custom-abv').value = '';
-        document.getElementById('custom-amount').value = '';
+        if (DOM.elements['custom-abv']) DOM.elements['custom-abv'].value = '';
+        if (DOM.elements['custom-amount']) DOM.elements['custom-amount'].value = '';
 
         toggleModal('beer-modal', true);
     },
 
-    // タブ切り替えロジック
     switchBeerInputTab: (mode) => {
-        const presetTab = document.getElementById('tab-beer-preset');
-        const customTab = document.getElementById('tab-beer-custom');
-        const presetContent = document.getElementById('beer-input-preset');
-        const customContent = document.getElementById('beer-input-custom');
+        const presetTab = DOM.elements['tab-beer-preset'];
+        const customTab = DOM.elements['tab-beer-custom'];
+        const presetContent = DOM.elements['beer-input-preset'];
+        const customContent = DOM.elements['beer-input-custom'];
 
-        // ダークモード対応クラス
+        if (!presetTab || !customTab) return;
+
         const activeClass = "bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
         const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600";
 
         if (mode === 'preset') {
             presetTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${activeClass}`;
             customTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${inactiveClass}`;
-            presetContent.classList.remove('hidden');
-            customContent.classList.add('hidden');
+            presetContent?.classList.remove('hidden');
+            customContent?.classList.add('hidden');
         } else {
             customTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${activeClass}`;
             presetTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${inactiveClass}`;
-            customContent.classList.remove('hidden');
-            presetContent.classList.add('hidden');
+            customContent?.classList.remove('hidden');
+            presetContent?.classList.add('hidden');
         }
     },
 
     openCheckModal: () => { 
-        const dateEl = document.getElementById('check-date');
+        const dateEl = DOM.elements['check-date'];
         if (dateEl) dateEl.value = UI.getTodayString();
         
-        document.getElementById('check-weight').value = '';
+        if (DOM.elements['check-weight']) DOM.elements['check-weight'].value = '';
         toggleModal('check-modal', true); 
     },
 
     openManualInput: () => { 
         const select = document.getElementById('exercise-select');
         const label = EXERCISE[select.value] ? EXERCISE[select.value].label : '運動';
-        document.getElementById('manual-exercise-name').textContent = label; 
         
-        const dateEl = document.getElementById('manual-date');
+        const nameEl = DOM.elements['manual-exercise-name'];
+        if (nameEl) nameEl.textContent = label; 
+        
+        const dateEl = DOM.elements['manual-date'];
         if (dateEl) dateEl.value = UI.getTodayString();
         
         toggleModal('manual-exercise-modal', true); 
@@ -140,18 +266,18 @@ export const UI = {
 
     openSettings: () => {
         const p = Store.getProfile();
-        document.getElementById('weight-input').value = p.weight;
-        document.getElementById('height-input').value = p.height;
-        document.getElementById('age-input').value = p.age;
-        document.getElementById('gender-input').value = p.gender;
+        const setVal = (key, val) => { if(DOM.elements[key]) DOM.elements[key].value = val; };
+        
+        setVal('weight-input', p.weight);
+        setVal('height-input', p.height);
+        setVal('age-input', p.age);
+        setVal('gender-input', p.gender);
         
         const modes = Store.getModes();
-        document.getElementById('setting-mode-1').value = modes.mode1;
-        document.getElementById('setting-mode-2').value = modes.mode2;
-        document.getElementById('setting-base-exercise').value = Store.getBaseExercise();
-        
-        // テーマ設定の読み込み
-        document.getElementById('theme-input').value = Store.getTheme();
+        setVal('setting-mode-1', modes.mode1);
+        setVal('setting-mode-2', modes.mode2);
+        setVal('setting-base-exercise', Store.getBaseExercise());
+        setVal('theme-input', Store.getTheme());
         
         toggleModal('settings-modal', true);
     },
@@ -162,30 +288,32 @@ export const UI = {
 
     updateModeButtons: () => {
         const modes = Store.getModes();
-        const btn1 = document.getElementById('btn-mode-1');
-        const btn2 = document.getElementById('btn-mode-2');
+        const btn1 = DOM.elements['btn-mode-1'];
+        const btn2 = DOM.elements['btn-mode-2'];
         if(btn1) btn1.textContent = `🍺 ${modes.mode1}換算`;
         if(btn2) btn2.textContent = `🍺🍺 ${modes.mode2}換算`;
     },
 
     setBeerMode: (mode) => {
         currentState.beerMode = mode;
-        const lBtn = document.getElementById('btn-mode-1');
-        const hBtn = document.getElementById('btn-mode-2');
-        const liq = document.getElementById('tank-liquid');
+        const lBtn = DOM.elements['btn-mode-1'];
+        const hBtn = DOM.elements['btn-mode-2'];
+        const liq = DOM.elements['tank-liquid'];
         
         const activeClass = "bg-indigo-600 text-white shadow-sm";
         const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700";
 
-        if (mode === 'mode1') {
-            lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
-            hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
-            liq.classList.remove('mode2'); liq.classList.add('mode1');
-        } else {
-            hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
-            lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
-            liq.classList.remove('mode1'); liq.classList.add('mode2');
-        }
+        requestAnimationFrame(() => {
+            if (mode === 'mode1') {
+                if(lBtn) lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
+                if(hBtn) hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
+                if(liq) { liq.classList.remove('mode2'); liq.classList.add('mode1'); }
+            } else {
+                if(hBtn) hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
+                if(lBtn) lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
+                if(liq) { liq.classList.remove('mode1'); liq.classList.add('mode2'); }
+            }
+        });
         refreshUI();
     },
 
@@ -212,35 +340,47 @@ export const UI = {
 };
 
 export function updateBeerSelectOptions() { 
-    const s = document.getElementById('beer-select'); 
+    const s = DOM.elements['beer-select']; 
     if (!s) return;
 
     const baseEx = Store.getBaseExercise();
     const exData = EXERCISE[baseEx] || EXERCISE['stepper'];
     
-    s.innerHTML = '<option value="">選択してください</option>'; 
+    const fragment = document.createDocumentFragment();
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = "";
+    defaultOpt.textContent = "選択してください";
+    fragment.appendChild(defaultOpt);
+
     const r = Calc.burnRate(exData.mets); 
     
-    const labelEl = document.getElementById('beer-select-mode-label');
+    const labelEl = DOM.elements['beer-select-mode-label'];
     if (labelEl) labelEl.textContent = `${exData.icon} ${exData.label} 換算`;
 
     Object.keys(CALORIES.STYLES).forEach(k => { 
         const o = document.createElement('option'); 
         o.value = k; 
-        o.textContent = `${k} (${Math.round(CALORIES.STYLES[k]/r)}分)`; 
-        s.appendChild(o); 
+        o.textContent = `${k}`; 
+        fragment.appendChild(o); 
     }); 
     
-    const m1 = document.getElementById('setting-mode-1'); 
-    const m2 = document.getElementById('setting-mode-2'); 
+    s.innerHTML = '';
+    s.appendChild(fragment);
+
+    const m1 = DOM.elements['setting-mode-1']; 
+    const m2 = DOM.elements['setting-mode-2']; 
     
     if (m1 && m2) {
-        m1.innerHTML = '';
-        m2.innerHTML = '';
+        const frag1 = document.createDocumentFragment();
+        const frag2 = document.createDocumentFragment();
+        
         Object.keys(CALORIES.STYLES).forEach(k => {
-            const o1 = document.createElement('option'); o1.value = k; o1.textContent = k; m1.appendChild(o1);
-            const o2 = document.createElement('option'); o2.value = k; o2.textContent = k; m2.appendChild(o2);
+            const o1 = document.createElement('option'); o1.value = k; o1.textContent = k; frag1.appendChild(o1);
+            const o2 = document.createElement('option'); o2.value = k; o2.textContent = k; frag2.appendChild(o2);
         });
+        
+        m1.innerHTML = ''; m1.appendChild(frag1);
+        m2.innerHTML = ''; m2.appendChild(frag2);
     }
 }
 
@@ -256,16 +396,100 @@ export async function refreshUI() {
         renderWeeklyAndHeatUp(logs, checks);
         renderQuickButtons(logs); 
         
-        if(document.getElementById('tab-history').classList.contains('active')) {
+        if(document.getElementById('tab-history')?.classList.contains('active')) {
             renderChart(logs, checks);
+            // 【追加】ヒートマップの描画
+            renderHeatmap(logs, checks);
         }
     } catch (err) {
         console.error("Failed to refresh UI:", err);
     }
 }
 
+// 【追加】ヒートマップ描画ロジック
+function renderHeatmap(logs, checks) {
+    const grid = DOM.elements['heatmap-grid'];
+    if (!grid) return;
+
+    // 前回の描画をクリアするが、ヘッダー(曜日)は残す
+    // gridの最初7つの要素(曜日ヘッダ)以降を削除して再構築
+    while (grid.children.length > 7) {
+        grid.removeChild(grid.lastChild);
+    }
+
+    const today = dayjs();
+    // 過去12週間分（約84日）を表示。日曜始まりに調整
+    // 今日の日付から、直近の土曜日まで進め、そこから12週間戻るなどの計算が必要だが
+    // シンプルに「今日を含む週の土曜日」を終点とし、そこから84日前まで遡る形にする
+    
+    const endDay = today.endOf('week'); // 今週の土曜
+    const startDay = endDay.subtract(11, 'week').startOf('week'); // 11週前の日曜
+    
+    const totalDays = endDay.diff(startDay, 'day') + 1;
+    
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < totalDays; i++) {
+        const currentDay = startDay.add(i, 'day');
+        
+        // Check有無
+        const check = checks.find(c => dayjs(c.timestamp).isSame(currentDay, 'day'));
+        const isDry = check?.isDryDay;
+
+        // Log分析
+        const dayLogs = logs.filter(l => dayjs(l.timestamp).isSame(currentDay, 'day'));
+        const hasDrink = dayLogs.some(l => l.minutes < 0); // 借金レコード
+        const hasExercise = dayLogs.some(l => l.minutes > 0); // 返済レコード
+
+        let bgColor = "bg-gray-100 dark:bg-gray-700"; // default
+        let title = `${currentDay.format('MM/DD')}: No Record`;
+
+        // 優先度順に色を決定
+        if (isDry && hasExercise) {
+            bgColor = "bg-emerald-500"; // Perfect
+            title = `${currentDay.format('MM/DD')}: Perfect! (休肝+運動)`;
+        } else if (isDry) {
+            bgColor = "bg-green-400"; // Dry
+            title = `${currentDay.format('MM/DD')}: 休肝日`;
+        } else if (hasDrink && hasExercise) {
+            bgColor = "bg-blue-400"; // Recover
+            title = `${currentDay.format('MM/DD')}: 飲酒+運動`;
+        } else if (hasDrink) {
+            bgColor = "bg-red-400"; // Drink
+            title = `${currentDay.format('MM/DD')}: 飲酒`;
+        } else if (hasExercise) {
+            bgColor = "bg-cyan-400"; // Exercise Only
+            title = `${currentDay.format('MM/DD')}: 運動のみ`;
+        }
+
+        const cell = document.createElement('div');
+        // 日付が未来の場合は不透明度を下げる
+        if (currentDay.isAfter(today, 'day')) {
+            bgColor = "bg-transparent border border-gray-100 dark:border-gray-700";
+            title = "";
+        }
+
+        cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] text-white/90 font-bold transition hover:opacity-80 ${bgColor}`;
+        cell.title = title;
+        
+        // 1日と、今日の日付だけ数字を表示する（ゴチャゴチャ回避）
+        if (currentDay.date() === 1 || currentDay.isSame(today, 'day')) {
+             cell.textContent = currentDay.date();
+        }
+
+        // 今日の枠を強調
+        if (currentDay.isSame(today, 'day')) {
+            cell.classList.add('ring-1', 'ring-indigo-500', 'ring-offset-1');
+        }
+
+        fragment.appendChild(cell);
+    }
+
+    grid.appendChild(fragment);
+}
+
 function renderQuickButtons(logs) {
-    const container = document.getElementById('quick-input-area');
+    const container = DOM.elements['quick-input-area'];
     if (!container) return;
     
     const counts = {};
@@ -289,7 +513,6 @@ function renderQuickButtons(logs) {
         return;
     }
 
-    // data属性を使ってイベント委譲で処理する
     container.innerHTML = topShortcuts.map(item => {
         const sizeLabel = SIZE_DATA[item.size] ? SIZE_DATA[item.size].label.replace(/ \(.*\)/, '') : item.size;
         return `<button data-style="${escapeHtml(item.style)}" data-size="${escapeHtml(item.size)}" 
@@ -303,7 +526,7 @@ function renderQuickButtons(logs) {
 
 function renderLogList(logs) {
     logs.sort((a, b) => b.timestamp - a.timestamp);
-    const list = document.getElementById('log-list');
+    const list = DOM.elements['log-list'];
     if (!list) return;
 
     if (logs.length === 0) { 
@@ -316,15 +539,15 @@ function renderLogList(logs) {
     const displayRate = Calc.burnRate(baseExData.mets);
     const stepperRate = Calc.burnRate(EXERCISE['stepper'].mets);
 
-    const labelEl = document.getElementById('history-base-label');
+    const labelEl = DOM.elements['history-base-label'];
     if(labelEl) labelEl.textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
 
-    list.innerHTML = logs.map(log => {
+    const htmlItems = logs.map(log => {
         const isDebt = log.minutes < 0;
         const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
         const signClass = isDebt ? 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-300' : 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-300';
         
-        const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const date = dayjs(log.timestamp).format('MM/DD HH:mm');
         
         let detailHtml = '';
         if (log.brewery || log.brand) {
@@ -343,7 +566,6 @@ function renderLogList(logs) {
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        // data-id属性を使ってイベント委譲で削除処理をする
         return `<div class="flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors">
                     <div class="flex-grow min-w-0 pr-2">
                         <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
@@ -354,7 +576,9 @@ function renderLogList(logs) {
                         <button data-id="${log.timestamp}" class="delete-log-btn text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 p-1 font-bold px-2">×</button>
                     </div>
                 </div>`;
-    }).join('');
+    });
+
+    list.innerHTML = htmlItems.join('');
 }
 
 function renderBeerTank(logs) {
@@ -371,50 +595,53 @@ function renderBeerTank(logs) {
     const displayRate = Calc.burnRate(baseExData.mets);
     const displayMinutes = totalKcal / displayRate;
 
-    const liquid = document.getElementById('tank-liquid');
-    const emptyIcon = document.getElementById('tank-empty-icon');
-    const cansText = document.getElementById('tank-cans');
-    const minText = document.getElementById('tank-minutes');
-    const msgText = document.querySelector('#tank-message p');
+    const liquid = DOM.elements['tank-liquid'];
+    const emptyIcon = DOM.elements['tank-empty-icon'];
+    const cansText = DOM.elements['tank-cans'];
+    const minText = DOM.elements['tank-minutes'];
+    const msgText = DOM.elements['tank-message'] ? DOM.elements['tank-message'].querySelector('p') : null;
 
-    if (totalBalance > 0) {
-        emptyIcon.style.opacity = '0';
-        let h = (canCount / APP.TANK_MAX_CANS) * 100;
-        liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
-        cansText.textContent = canCount.toFixed(1);
-        
-        minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
-        
-        if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500 dark:text-gray-400'; }
-        else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500'; }
-        else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
-        else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
-    } else {
-        liquid.style.height = '0%';
-        emptyIcon.style.opacity = '1';
-        cansText.textContent = "0.0";
-        
-        minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
-        minText.className = 'text-sm font-bold text-red-500';
-        
-        const debtCans = (Math.abs(totalKcal) / unitKcal).toFixed(1);
-        msgText.textContent = `枯渇中... あと${debtCans}本分動こう😱`;
-        msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
-    }
+    if (!liquid || !emptyIcon || !cansText || !minText || !msgText) return;
+
+    requestAnimationFrame(() => {
+        if (totalBalance > 0) {
+            emptyIcon.style.opacity = '0';
+            let h = (canCount / APP.TANK_MAX_CANS) * 100;
+            liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
+            cansText.textContent = canCount.toFixed(1);
+            
+            minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
+            
+            if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500 dark:text-gray-400'; }
+            else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500'; }
+            else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
+            else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
+        } else {
+            liquid.style.height = '0%';
+            emptyIcon.style.opacity = '1';
+            cansText.textContent = "0.0";
+            
+            minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
+            minText.className = 'text-sm font-bold text-red-500';
+            
+            const debtCans = (Math.abs(totalKcal) / unitKcal).toFixed(1);
+            msgText.textContent = `枯渇中... あと${debtCans}本分動こう😱`;
+            msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
+        }
+    });
 }
 
 function renderLiverRank(checks, logs) {
     const gradeData = Calc.getRecentGrade(checks, logs);
     
-    const card = document.getElementById('liver-rank-card');
-    const title = document.getElementById('rank-title');
-    const countEl = document.getElementById('dry-count');
-    const bar = document.getElementById('rank-progress');
-    const msg = document.getElementById('rank-next-msg');
+    const card = DOM.elements['liver-rank-card'];
+    const title = DOM.elements['rank-title'];
+    const countEl = DOM.elements['dry-count'];
+    const bar = DOM.elements['rank-progress'];
+    const msg = DOM.elements['rank-next-msg'];
 
-    if(!card) return;
+    if(!card || !title || !countEl || !bar || !msg) return;
 
-    // データがロードされたら表示
     card.classList.remove('hidden');
 
     title.className = `text-xl font-black mt-1 ${gradeData.color}`;
@@ -422,11 +649,6 @@ function renderLiverRank(checks, logs) {
     
     countEl.textContent = gradeData.current;
     
-    // ダークモード対応の背景色オーバーライドはCSSクラスで行うか、TailwindのクラスをJSで制御する
-    // ここではシンプルにするため、gradeData.bgを使っているが、これは bg-orange-100 などのため
-    // ダークモード時は色が明るすぎる。dark:bg-orange-900 などを付与する必要がある。
-    
-    // 簡易的なマッピング
     const darkBgMap = {
         'bg-orange-100': 'dark:bg-orange-900/30 dark:border-orange-800',
         'bg-indigo-100': 'dark:bg-indigo-900/30 dark:border-indigo-800',
@@ -440,37 +662,43 @@ function renderLiverRank(checks, logs) {
     
     card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors ${gradeData.bg} ${darkClasses}`;
 
-    if (gradeData.next) {
-        let percent = 0;
-        if (gradeData.isRookie) {
-             percent = (gradeData.rawRate / gradeData.targetRate) * 100;
-             msg.textContent = `ランクアップまであと少し！ (現在 ${Math.round(gradeData.rawRate * 100)}%)`;
+    requestAnimationFrame(() => {
+        if (gradeData.next) {
+            let percent = 0;
+            if (gradeData.isRookie) {
+                 percent = (gradeData.rawRate / gradeData.targetRate) * 100;
+                 msg.textContent = `ランクアップまであと少し！ (現在 ${Math.round(gradeData.rawRate * 100)}%)`;
+            } else {
+                const prevTarget = gradeData.rank === 'A' ? 12 : (gradeData.rank === 'B' ? 8 : 0);
+                const range = gradeData.next - prevTarget;
+                const currentInRank = gradeData.current - prevTarget;
+                percent = (currentInRank / range) * 100;
+                msg.textContent = `ランクアップまであと ${gradeData.next - gradeData.current} 日`;
+            }
+            bar.style.width = `${Math.min(100, Math.max(5, percent))}%`;
         } else {
-            const prevTarget = gradeData.rank === 'A' ? 12 : (gradeData.rank === 'B' ? 8 : 0);
-            const range = gradeData.next - prevTarget;
-            const currentInRank = gradeData.current - prevTarget;
-            percent = (currentInRank / range) * 100;
-            msg.textContent = `ランクアップまであと ${gradeData.next - gradeData.current} 日`;
+            bar.style.width = '100%';
+            msg.textContent = '最高ランク到達！キープしよう！👑';
         }
-        bar.style.width = `${Math.min(100, Math.max(5, percent))}%`;
-    } else {
-        bar.style.width = '100%';
-        msg.textContent = '最高ランク到達！キープしよう！👑';
-    }
+    });
 }
 
 function renderCheckStatus(checks, logs) {
-    const status = document.getElementById('check-status');
+    const status = DOM.elements['check-status'];
     if(!status) return;
 
-    const today = new Date(); const yest = new Date(new Date().setDate(today.getDate()-1));
+    const today = dayjs();
+    const yest = today.subtract(1, 'day');
+    
     let targetCheck = null; let type = 'none';
 
     if (checks.length > 0) {
         for(let i=checks.length-1; i>=0; i--) {
             const c = checks[i];
-            if (Calc.isSameDay(c.timestamp, today)) { targetCheck = c; type = 'today'; break; }
-            if (Calc.isSameDay(c.timestamp, yest)) { targetCheck = c; type = 'yesterday'; break; }
+            const checkDay = dayjs(c.timestamp);
+            
+            if (checkDay.isSame(today, 'day')) { targetCheck = c; type = 'today'; break; }
+            if (checkDay.isSame(yest, 'day')) { targetCheck = c; type = 'yesterday'; break; }
         }
     }
 
@@ -478,7 +706,6 @@ function renderCheckStatus(checks, logs) {
         const msg = getCheckMessage(targetCheck, logs);
         const title = type === 'today' ? "Today's Condition" : "Yesterday's Check";
         
-        // ダークモード対応スタイル
         const style = type === 'today' 
             ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300" 
             : "bg-white dark:bg-gray-800 border-green-400 border-l-4";
@@ -493,7 +720,7 @@ function renderCheckStatus(checks, logs) {
         status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm transition-colors"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold ${textColor} flex items-center">${msg}${weightHtml}</p></div></div><button id="btn-edit-check" class="bg-white dark:bg-gray-700 bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200 dark:border-gray-600 dark:text-white">編集</button></div>`;
         
     } else {
-        const lastDate = checks.length > 0 ? new Date(checks[checks.length-1].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
+        const lastDate = checks.length > 0 ? dayjs(checks[checks.length-1].timestamp).format('MM/DD') : 'なし';
         status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 flex justify-between items-center shadow-sm transition-colors"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button id="btn-record-check" class="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 dark:border-yellow-700 animate-pulse text-yellow-800 dark:text-yellow-400">記録する</button></div>`;
     }
 }
@@ -510,10 +737,10 @@ function renderWeeklyAndHeatUp(logs, checks) {
     const streak = Calc.getCurrentStreak(logs, checks);
     const multiplier = Calc.getStreakMultiplier(streak);
     
-    const streakEl = document.getElementById('streak-count');
+    const streakEl = DOM.elements['streak-count'];
     if(streakEl) streakEl.textContent = streak;
     
-    const badge = document.getElementById('streak-badge');
+    const badge = DOM.elements['streak-badge'];
     if (badge) {
         if (multiplier > 1.0) {
             badge.textContent = `🔥 x${multiplier.toFixed(1)} Bonus!`;
@@ -524,16 +751,15 @@ function renderWeeklyAndHeatUp(logs, checks) {
         }
     }
 
-    const container = document.getElementById('weekly-stamps');
+    const container = DOM.elements['weekly-stamps'];
     if (!container) return;
-    container.innerHTML = '';
     
-    const today = new Date();
+    const fragment = document.createDocumentFragment();
+    const today = dayjs();
     let dryCountInWeek = 0;
 
     for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(today.getDate() - i);
+        const d = today.subtract(i, 'day');
         const status = Calc.getDayStatus(d, logs, checks);
         const isToday = i === 0;
 
@@ -558,12 +784,15 @@ function renderWeeklyAndHeatUp(logs, checks) {
         const div = document.createElement('div');
         div.className = elClass;
         div.textContent = content;
-        div.title = `${d.getMonth()+1}/${d.getDate()}`;
+        div.title = d.format('MM/DD'); 
         
-        container.appendChild(div);
+        fragment.appendChild(div);
     }
 
-    const msgEl = document.getElementById('weekly-status-text');
+    container.innerHTML = '';
+    container.appendChild(fragment);
+
+    const msgEl = DOM.elements['weekly-status-text'];
     if (msgEl) {
         if (dryCountInWeek >= 4) msgEl.textContent = "Excellent! 🌟";
         else if (dryCountInWeek >= 2) msgEl.textContent = "Good pace 👍";
@@ -575,49 +804,38 @@ function renderChart(logs, checks) {
     const ctxCanvas = document.getElementById('balanceChart');
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
-    // フィルターボタンのスタイル更新
-    document.querySelectorAll('#chart-filters button').forEach(btn => {
-        const activeClass = "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
-        const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
-        
-        // クラスをリセットしてから適用
-        btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all " + 
-            (btn.dataset.range === currentState.chartRange ? activeClass : inactiveClass);
-    });
+    const filters = DOM.elements['chart-filters'];
+    if(filters) {
+        filters.querySelectorAll('button').forEach(btn => {
+            const activeClass = "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
+            const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
+            
+            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all " + 
+                (btn.dataset.range === currentState.chartRange ? activeClass : inactiveClass);
+        });
+    }
 
     try {
-        // フィルタリング処理
-        const now = Date.now();
+        const now = dayjs();
         let cutoffDate = 0;
         
         if (currentState.chartRange === '1w') {
-            cutoffDate = now - (7 * 24 * 60 * 60 * 1000);
+            cutoffDate = now.subtract(7, 'day').valueOf();
         } else if (currentState.chartRange === '1m') {
-            cutoffDate = now - (30 * 24 * 60 * 60 * 1000);
+            cutoffDate = now.subtract(30, 'day').valueOf();
         } else {
-            // all
             cutoffDate = 0;
         }
 
-        const filteredLogs = logs.filter(l => l.timestamp >= cutoffDate);
-        const filteredChecks = checks.filter(c => c.timestamp >= cutoffDate);
-        
-        const sortedLogs = [...filteredLogs].sort((a, b) => a.timestamp - b.timestamp);
-        const dailyData = new Map();
-        
-        let currentBalance = 0;
-        
-        // 全期間で日次データを生成して累積残高を正しく計算
         const allLogsSorted = [...logs].sort((a, b) => a.timestamp - b.timestamp);
         const allChecksSorted = [...checks].sort((a, b) => a.timestamp - b.timestamp);
         
         const fullHistoryMap = new Map();
         let runningBalance = 0;
 
-        // 全ログで残高計算
         allLogsSorted.forEach(l => {
-            const d = new Date(l.timestamp);
-            const k = `${d.getMonth()+1}/${d.getDate()}`;
+            const d = dayjs(l.timestamp);
+            const k = d.format('M/D');
             
             if (!fullHistoryMap.has(k)) fullHistoryMap.set(k, {plus:0, minus:0, bal:0, weight:null, ts: l.timestamp});
             const e = fullHistoryMap.get(k);
@@ -627,10 +845,9 @@ function renderChart(logs, checks) {
             e.bal = runningBalance;
         });
 
-        // チェックデータ統合
         allChecksSorted.forEach(c => {
-             const d = new Date(c.timestamp);
-             const k = `${d.getMonth()+1}/${d.getDate()}`;
+             const d = dayjs(c.timestamp);
+             const k = d.format('M/D');
              if (!fullHistoryMap.has(k)) {
                  fullHistoryMap.set(k, {plus:0, minus:0, bal: runningBalance, weight:null, ts: c.timestamp});
              }
@@ -638,7 +855,6 @@ function renderChart(logs, checks) {
              if (c.weight) e.weight = parseFloat(c.weight);
         });
 
-        // 配列化してソート
         let dataArray = Array.from(fullHistoryMap.entries()).map(([k, v]) => ({
             label: k,
             ...v
@@ -646,14 +862,12 @@ function renderChart(logs, checks) {
 
         dataArray.sort((a, b) => a.ts - b.ts);
         
-        // フィルタリング適用
         if (cutoffDate > 0) {
             dataArray = dataArray.filter(d => d.ts >= cutoffDate);
         }
         
         if (dataArray.length === 0) {
-            const t = new Date();
-            dataArray.push({label: `${t.getMonth()+1}/${t.getDate()}`, plus:0, minus:0, bal:0, weight:null});
+            dataArray.push({label: now.format('M/D'), plus:0, minus:0, bal:0, weight:null});
         }
 
         const labels = dataArray.map(d => d.label);
@@ -664,7 +878,6 @@ function renderChart(logs, checks) {
 
         if (currentState.chart) currentState.chart.destroy();
         
-        // チャートのテキストカラーをテーマに合わせて調整
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#9ca3af' : '#6b7280';
         const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
@@ -723,10 +936,7 @@ function renderChart(logs, checks) {
                 responsive: true, 
                 maintainAspectRatio: false, 
                 scales: { 
-                    x: { 
-                        stacked: true, 
-                        display: false 
-                    }, 
+                    x: { stacked: true, display: false }, 
                     y: { 
                         stacked: false, 
                         beginAtZero: true,
@@ -746,11 +956,7 @@ function renderChart(logs, checks) {
                     }
                 }, 
                 plugins: { 
-                    legend: { 
-                        display: true, 
-                        position: 'bottom',
-                        labels: { color: textColor }
-                    } 
+                    legend: { display: true, position: 'bottom', labels: { color: textColor } } 
                 } 
             }
         });

@@ -2,22 +2,47 @@ import { APP, EXERCISE, SIZE_DATA, CALORIES } from './constants.js';
 import { db, Store, ExternalApp } from './store.js';
 import { Calc } from './logic.js';
 import { UI, currentState, updateBeerSelectOptions, refreshUI, toggleModal } from './ui.js';
+// Day.js をCDNからインポート
+import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// constants.js の CALORIES.STYLES のキーと整合性を取った定義
+const STYLE_SPECS = {
+    'バーレイワイン': { abv: 10.0, type: 'sweet' },
+    'ダブルIPA (DIPA)': { abv: 8.5, type: 'sweet' },
+    'ベルジャン・トリペル': { abv: 9.0, type: 'sweet' },
+    'Hazy IPA': { abv: 7.0, type: 'sweet' },
+    'IPA (West Coast)': { abv: 6.5, type: 'sweet' },
+    'Hazyペールエール': { abv: 6.0, type: 'sweet' },
+    'ペールエール': { abv: 5.5, type: 'sweet' },
+    'ジャパニーズエール': { abv: 5.5, type: 'sweet' },
+    'アンバーエール': { abv: 5.5, type: 'sweet' },
+    'セッションIPA': { abv: 4.5, type: 'sweet' },
+    'スタウト': { abv: 6.0, type: 'sweet' },
+    'ポーター': { abv: 5.5, type: 'sweet' },
+    'シュバルツ': { abv: 5.0, type: 'sweet' },
+    'ヴァイツェン': { abv: 5.0, type: 'sweet' },
+    'ベルジャンホワイト': { abv: 5.0, type: 'sweet' },
+    'セゾン': { abv: 6.0, type: 'sweet' },
+    '大手ラガー': { abv: 5.0, type: 'sweet' },
+    'ドルトムンター': { abv: 5.5, type: 'sweet' },
+    'ピルスナー': { abv: 5.0, type: 'sweet' },
+    'サワーエール': { abv: 5.0, type: 'sweet' },
+    'フルーツビール': { abv: 5.0, type: 'sweet' },
+    '糖質オフ/第三のビール': { abv: 4.0, type: 'dry' }
+};
 
 // Helper: 日付文字列(YYYY-MM-DD)を、その日の12:00のTimestampに変換
 const getDateTimestamp = (dateStr) => {
     if (!dateStr) return Date.now();
-    const d = new Date(dateStr);
-    d.setHours(12, 0, 0, 0); 
-    return d.getTime();
+    return dayjs(dateStr).startOf('day').add(12, 'hour').valueOf();
 };
 
 /* ==========================================================================
    Event Handling & App Logic
    ========================================================================== */
 
-// 設定保存
 const handleSaveSettings = () => {
     const w = parseFloat(document.getElementById('weight-input').value);
     const h = parseFloat(document.getElementById('height-input').value);
@@ -36,13 +61,12 @@ const handleSaveSettings = () => {
         localStorage.setItem(APP.STORAGE_KEYS.MODE1, m1);
         localStorage.setItem(APP.STORAGE_KEYS.MODE2, m2);
         localStorage.setItem(APP.STORAGE_KEYS.BASE_EXERCISE, be);
-        localStorage.setItem(APP.STORAGE_KEYS.THEME, theme); // テーマ保存
+        localStorage.setItem(APP.STORAGE_KEYS.THEME, theme);
         
         toggleModal('settings-modal', false);
         UI.updateModeButtons();
         updateBeerSelectOptions(); 
         
-        // テーマ即時適用
         UI.applyTheme(theme);
         
         refreshUI();
@@ -52,7 +76,6 @@ const handleSaveSettings = () => {
     }
 };
 
-// 飲酒記録（借金）の送信
 const handleBeerSubmit = async (e) => {
     e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
@@ -62,10 +85,7 @@ const handleBeerSubmit = async (e) => {
     const memo = document.getElementById('beer-memo').value;
     const useUntappd = document.getElementById('untappd-check').checked;
     
-    // 日付指定があればその日付、なければ現在日時
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
-
-    // モード判定
     const isCustom = !document.getElementById('beer-input-custom').classList.contains('hidden');
     
     let logName = '';
@@ -73,45 +93,48 @@ const handleBeerSubmit = async (e) => {
     let logSize = '';
     let totalKcal = 0;
 
-    if (isCustom) {
-        // カスタム入力
-        const abv = parseFloat(document.getElementById('custom-abv').value);
-        const ml = parseFloat(document.getElementById('custom-amount').value);
-        const type = document.querySelector('input[name="customType"]:checked').value; // dry or sweet
-
-        if (!abv || !ml) return UI.showMessage('度数と量を入力してください', 'error');
-
-        // 純アルコール量 (g) = ml * (abv/100) * 0.8
+    const calculateKcal = (ml, abv, type) => {
         const alcoholG = ml * (abv / 100) * 0.8;
-        
-        // カロリー計算
-        // アルコール分: 7kcal/g
-        // 糖質分(Sweet): 0.15kcal/ml (仮定)
         let kcal = alcoholG * 7;
         if (type === 'sweet') {
              kcal += ml * 0.15;
         }
+        return kcal;
+    };
+
+    if (isCustom) {
+        const abv = parseFloat(document.getElementById('custom-abv').value);
+        const ml = parseFloat(document.getElementById('custom-amount').value);
+        const type = document.querySelector('input[name="customType"]:checked').value;
+
+        if (!abv || !ml) return UI.showMessage('度数と量を入力してください', 'error');
+
+        totalKcal = calculateKcal(ml, abv, type);
         
-        totalKcal = kcal;
         logName = `Custom ${abv}% ${ml}ml` + (type==='dry' ? '🔥' : '🍺');
         logStyle = 'Custom';
         logSize = `${ml}ml`;
 
     } else {
-        // プリセット入力 (既存ロジック)
         const s = document.getElementById('beer-select').value;
         const z = document.getElementById('beer-size').value;
         const c = parseFloat(document.getElementById('beer-count').value);
+        const userAbv = parseFloat(document.getElementById('preset-abv').value);
 
-        if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
+        if (!s || !z || !c || isNaN(userAbv)) return UI.showMessage('入力を確認してください', 'error');
 
-        totalKcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
-        logName = `${s} x${c}`;
+        const sizeMl = parseFloat(z);
+        
+        const spec = STYLE_SPECS[s] || { type: 'sweet' };
+        
+        const unitKcal = calculateKcal(sizeMl, userAbv, spec.type);
+        totalKcal = unitKcal * c;
+
+        logName = `${s} (${userAbv}%) x${c}`;
         logStyle = s;
         logSize = z;
     }
 
-    // 借金時間（分）に変換
     const min = totalKcal / Calc.burnRate(EXERCISE['stepper'].mets);
 
     await db.logs.add({ 
@@ -131,7 +154,6 @@ const handleBeerSubmit = async (e) => {
     toggleModal('beer-modal', false); 
     await refreshUI();
 
-    // フォームのリセット
     document.getElementById('beer-brewery').value = '';
     document.getElementById('beer-brand').value = '';
     document.getElementById('beer-rating').value = '0';
@@ -198,7 +220,6 @@ const deleteLog = async (timestamp) => {
 };
 
 const handleShare = async () => {
-    // ランクと残高を取得してシェアテキストを作成
     const rankTitle = document.getElementById('rank-title').textContent || 'Rookie';
     const balanceText = document.getElementById('tank-minutes').textContent || '0 min';
     const isPositive = balanceText.includes('+');
@@ -221,15 +242,10 @@ const handleShare = async () => {
             console.log('Share canceled');
         }
     } else {
-        // Fallback for PC etc
         const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
         window.open(twitterUrl, '_blank');
     }
 };
-
-/* ==========================================================================
-   Swipe Navigation Logic
-   ========================================================================== */
 
 let touchStartX = 0;
 let touchStartY = 0;
@@ -247,21 +263,14 @@ const handleTouchEnd = (e) => {
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
 
-    // 水平方向の移動が大きく、垂直方向の移動が小さい場合のみスワイプと判定
     if (Math.abs(diffX) > 60 && Math.abs(diffY) < 50) {
         const currentTabId = document.querySelector('.tab-content.active').id;
         const currentIndex = TABS.indexOf(currentTabId);
         
         if (diffX < 0) {
-            // Left swipe (Next tab)
-            if (currentIndex < TABS.length - 1) {
-                UI.switchTab(TABS[currentIndex + 1]);
-            }
+            if (currentIndex < TABS.length - 1) UI.switchTab(TABS[currentIndex + 1]);
         } else {
-            // Right swipe (Prev tab)
-            if (currentIndex > 0) {
-                UI.switchTab(TABS[currentIndex - 1]);
-            }
+            if (currentIndex > 0) UI.switchTab(TABS[currentIndex - 1]);
         }
     }
 };
@@ -280,22 +289,33 @@ async function recordExercise(t, m, dateVal = null) {
     const baseKcal = Calc.burnRate(i.mets) * m;
     const bonusKcal = baseKcal * multiplier;
     const eq = Calc.stepperEq(bonusKcal);
+    const earnedMinutes = Math.round(eq);
 
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
+
+    // 【追加】借金完済判定
+    // 現在の残高を計算（今回の記録前）
+    const currentBalance = allLogs.reduce((sum, l) => sum + l.minutes, 0);
 
     await db.logs.add({
         name: `${i.icon} ${i.label}`, 
         type: '返済', 
-        minutes: Math.round(eq), 
+        minutes: earnedMinutes, 
         rawMinutes: m, 
         timestamp: ts,
         memo: multiplier > 1.0 ? `🔥 Streak Bonus x${multiplier}` : ''
     }); 
     
-    if (multiplier > 1.0) {
-        UI.showMessage(`${i.label} ${m}分 記録！\n🔥連続休肝ボーナス！返済効率 x${multiplier}`, 'success'); 
+    // 今回の運動で借金がゼロ以上になったか判定
+    if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {
+        UI.showConfetti();
+        UI.showMessage(`借金完済！おめでとう！🎉\n${i.label} ${m}分 記録完了`, 'success');
     } else {
-        UI.showMessage(`${i.label} ${m}分 記録！`, 'success'); 
+        if (multiplier > 1.0) {
+            UI.showMessage(`${i.label} ${m}分 記録！\n🔥連続休肝ボーナス！返済効率 x${multiplier}`, 'success'); 
+        } else {
+            UI.showMessage(`${i.label} ${m}分 記録！`, 'success'); 
+        }
     }
     
     await refreshUI(); 
@@ -379,7 +399,6 @@ const timerControl = {
             st = parseInt(st, 10);
             const elapsed = Date.now() - st;
             if (elapsed > ONE_DAY_MS) {
-                console.warn('Timer start too old, resetting.');
                 localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
                 UI.showMessage('途中で中断された計測をリセットしました', 'error');
                 return;
@@ -435,7 +454,6 @@ async function migrateData() {
 // -----------------------------------------------------
 
 function bindEvents() {
-    // Header & Tabs
     document.getElementById('btn-open-help')?.addEventListener('click', UI.openHelp);
     document.getElementById('btn-open-settings')?.addEventListener('click', UI.openSettings);
     
@@ -443,18 +461,15 @@ function bindEvents() {
     document.getElementById('nav-tab-record').addEventListener('click', () => UI.switchTab('tab-record'));
     document.getElementById('nav-tab-history').addEventListener('click', () => UI.switchTab('tab-history'));
 
-    // Swipe Events
     const swipeArea = document.getElementById('swipe-area');
     if (swipeArea) {
         swipeArea.addEventListener('touchstart', handleTouchStart, {passive: true});
         swipeArea.addEventListener('touchend', handleTouchEnd);
     }
 
-    // Mode Buttons
     document.getElementById('btn-mode-1').addEventListener('click', () => UI.setBeerMode('mode1'));
     document.getElementById('btn-mode-2').addEventListener('click', () => UI.setBeerMode('mode2'));
 
-    // Chart Filters
     document.getElementById('chart-filters').addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             currentState.chartRange = e.target.dataset.range;
@@ -462,59 +477,49 @@ function bindEvents() {
         }
     });
 
-    // Beer Modal Tabs
-    // オプショナルチェーン (?.) を追加して、要素がない場合のエラーを防止
     document.getElementById('tab-beer-preset')?.addEventListener('click', () => UI.switchBeerInputTab('preset'));
     document.getElementById('tab-beer-custom')?.addEventListener('click', () => UI.switchBeerInputTab('custom'));
     
-    // Custom Amount Buttons
     document.querySelectorAll('.btn-quick-amount').forEach(btn => {
         btn.addEventListener('click', function() {
             document.getElementById('custom-amount').value = this.dataset.amount;
         });
     });
 
-    // Modals Close
     document.querySelectorAll('.btn-close-modal').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const modal = e.target.closest('.modal-bg') || e.target.closest('.modal-content').parentNode;
             toggleModal(modal.id, false);
         });
     });
-    // Modal Backgound Click
+    
     document.querySelectorAll('.modal-bg').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) toggleModal(modal.id, false);
         });
     });
 
-    // Record Tab
     document.getElementById('start-stepper-btn').addEventListener('click', timerControl.start);
     document.getElementById('stop-stepper-btn').addEventListener('click', timerControl.stop);
     document.getElementById('manual-record-btn').addEventListener('click', UI.openManualInput);
     document.getElementById('btn-open-beer').addEventListener('click', () => UI.openBeerModal());
     document.getElementById('btn-open-check').addEventListener('click', UI.openCheckModal);
-    document.getElementById('btn-share-sns').addEventListener('click', handleShare); // Share Button Event
+    document.getElementById('btn-share-sns').addEventListener('click', handleShare);
     
-    // Forms
     document.getElementById('beer-form').addEventListener('submit', handleBeerSubmit);
     document.getElementById('check-form').addEventListener('submit', handleCheckSubmit);
     document.getElementById('btn-submit-manual').addEventListener('click', handleManualExerciseSubmit);
     document.getElementById('btn-save-settings').addEventListener('click', handleSaveSettings);
 
-    // Check Form Logic
     document.getElementById('is-dry-day').addEventListener('change', function() { UI.toggleDryDay(this); });
 
-    // History Tab
     document.getElementById('btn-export-logs').addEventListener('click', () => DataManager.exportCSV('logs'));
     document.getElementById('btn-export-checks').addEventListener('click', () => DataManager.exportCSV('checks'));
     document.getElementById('btn-copy-data').addEventListener('click', DataManager.copyToClipboard);
     document.getElementById('btn-download-json').addEventListener('click', DataManager.exportJSON);
     document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
 
-    // Event Delegation for Dynamic Elements
-    
-    // 1. Log List Delete Buttons
+    // Event Delegation
     document.getElementById('log-list').addEventListener('click', (e) => {
         const btn = e.target.closest('.delete-log-btn');
         if (btn) {
@@ -522,24 +527,32 @@ function bindEvents() {
         }
     });
 
-    // 2. Check Status Edit/Record Buttons
     document.getElementById('check-status').addEventListener('click', (e) => {
         if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
             UI.openCheckModal();
         }
     });
 
-    // 3. Quick Input Buttons
     document.getElementById('quick-input-area').addEventListener('click', (e) => {
         const btn = e.target.closest('.quick-beer-btn');
         if (btn) {
             UI.openBeerModal(btn.dataset.style, btn.dataset.size);
         }
     });
+
+    document.getElementById('beer-select').addEventListener('change', function() {
+        const style = this.value;
+        const abvInput = document.getElementById('preset-abv');
+        if (style && abvInput) {
+            const spec = STYLE_SPECS[style];
+            if (spec) abvInput.value = spec.abv;
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 最初にテーマを適用（チラつき防止のため、HTMLのscriptでもやっているが、念のため）
+    UI.initDOM();
+
     const savedTheme = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
     UI.applyTheme(savedTheme);
 
@@ -565,16 +578,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(k === '350') o.selected = true; zs.appendChild(o); 
     });
 
-    // Load Profile
     const p = Store.getProfile();
     document.getElementById('weight-input').value = p.weight;
     document.getElementById('height-input').value = p.height;
     document.getElementById('age-input').value = p.age;
     document.getElementById('gender-input').value = p.gender;
 
-    // Initialize UI
     UI.updateModeButtons();
-    // ボタンのフェードイン
     document.getElementById('mode-selector').classList.remove('opacity-0');
 
     UI.setBeerMode('mode1');
