@@ -72,8 +72,35 @@ export const UI = {
 
         if (size && sizeSelect) sizeSelect.value = size;
         else if (sizeSelect) sizeSelect.value = '350';
+        
+        // デフォルトはプリセットモードで開く
+        UI.switchBeerInputTab('preset');
+        
+        // カスタム入力値はリセット
+        document.getElementById('custom-abv').value = '';
+        document.getElementById('custom-amount').value = '';
 
         toggleModal('beer-modal', true);
+    },
+
+    // タブ切り替えロジック
+    switchBeerInputTab: (mode) => {
+        const presetTab = document.getElementById('tab-beer-preset');
+        const customTab = document.getElementById('tab-beer-custom');
+        const presetContent = document.getElementById('beer-input-preset');
+        const customContent = document.getElementById('beer-input-custom');
+
+        if (mode === 'preset') {
+            presetTab.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition";
+            customTab.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500 hover:bg-white transition";
+            presetContent.classList.remove('hidden');
+            customContent.classList.add('hidden');
+        } else {
+            customTab.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition";
+            presetTab.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500 hover:bg-white transition";
+            customContent.classList.remove('hidden');
+            presetContent.classList.add('hidden');
+        }
     },
 
     openCheckModal: () => { 
@@ -535,28 +562,17 @@ function renderChart(logs, checks) {
         
         let currentBalance = 0;
         
-        // 全期間以外のときは、cutoff日より前の残高を初期値として加算しておく必要があるが、
-        // 簡易的に「期間内の収支」を見るか「累積残高」を見るかで変わる。
-        // ここでは「累積残高」の推移を見たいので、本来は全ログから計算が必要だが、
-        // 期間切り替えのUXとしては「その期間の動き」が見たいことが多い。
-        // ただ、借金返済アプリなので「現在の借金総額」との乖離は混乱を招く。
-        // よって、Balanceは常に全期間で計算し、表示だけカットするアプローチにする。
-
-        // 1. 全期間で日次データを生成
+        // 全期間で日次データを生成して累積残高を正しく計算
         const allLogsSorted = [...logs].sort((a, b) => a.timestamp - b.timestamp);
         const allChecksSorted = [...checks].sort((a, b) => a.timestamp - b.timestamp);
         
         const fullHistoryMap = new Map();
         let runningBalance = 0;
 
-        // ログが存在する日、または今日までの範囲をカバーするために日付セットを作るのは重いので、
-        // ログがある日だけで構成し、表示時にフィルタリングする
-        
-        // まず全データを時系列で処理して累積残高を計算
+        // 全ログで残高計算
         allLogsSorted.forEach(l => {
             const d = new Date(l.timestamp);
-            const k = `${d.getMonth()+1}/${d.getDate()}`; // 年をまたぐと重複するが簡易実装として維持
-            // 正確には YYYY-MM-DD key推奨だが、UI表示に合わせて月/日
+            const k = `${d.getMonth()+1}/${d.getDate()}`;
             
             if (!fullHistoryMap.has(k)) fullHistoryMap.set(k, {plus:0, minus:0, bal:0, weight:null, ts: l.timestamp});
             const e = fullHistoryMap.get(k);
@@ -566,47 +582,30 @@ function renderChart(logs, checks) {
             e.bal = runningBalance;
         });
 
-        // チェックデータ（体重）も統合
+        // チェックデータ統合
         allChecksSorted.forEach(c => {
              const d = new Date(c.timestamp);
              const k = `${d.getMonth()+1}/${d.getDate()}`;
              if (!fullHistoryMap.has(k)) {
-                 // ログがない日の残高は、直前の残高を引き継ぐべきだが、Mapの順序保証に頼るより
-                 // ここでは簡易的に「その日の変動なし」として扱う。
-                 // 厳密なチャート作成には日付を連続させる処理が必要だが、既存ロジックを踏襲。
                  fullHistoryMap.set(k, {plus:0, minus:0, bal: runningBalance, weight:null, ts: c.timestamp});
              }
              const e = fullHistoryMap.get(k);
              if (c.weight) e.weight = parseFloat(c.weight);
         });
 
-        // 2. 表示用にフィルタリングとソート
-        // Mapを配列に変換
+        // 配列化してソート
         let dataArray = Array.from(fullHistoryMap.entries()).map(([k, v]) => ({
             label: k,
             ...v
         }));
 
-        // 日付順にソート (月/日表記だと年またぎでバグる可能性があるが、timestampを保持させて回避)
         dataArray.sort((a, b) => a.ts - b.ts);
-        
-        // バランスの穴埋め（ログがない日のバランスは前日を引き継ぐ）
-        // dataArrayはログかチェックがあった日しかないので、飛び飛びになる可能性がある。
-        // Chart.jsはラベルベースなので、表示されるポイント間の補完は線で行われる。
-        // ここでは、データポイントとして存在するものの累積残高を正しく直す。
-        // (上記ループでrunningBalanceを使っているので、時系列順に処理されていれば概ね正しいが、
-        //  Checksだけの日に更新されていない可能性があるため再計算)
-        
-        let recalculateBal = 0;
-        // マージしてソートした全イベントを再なめるのが一番正確だが、
-        // ここでは既存ロジックの延長で、「期間フィルタ」だけ適用する。
         
         // フィルタリング適用
         if (cutoffDate > 0) {
             dataArray = dataArray.filter(d => d.ts >= cutoffDate);
         }
         
-        // データが空の場合のダミー
         if (dataArray.length === 0) {
             const t = new Date();
             dataArray.push({label: `${t.getMonth()+1}/${t.getDate()}`, plus:0, minus:0, bal:0, weight:null});

@@ -69,7 +69,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.3</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.4</span>
                 </div>
             </div>
         </div>
@@ -260,13 +260,19 @@
                 <h3 class="text-lg font-bold text-gray-800">🍺 飲酒記録 (借金)</h3>
                 <button class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-2 btn-close-modal">&times;</button>
             </div>
-            <form id="beer-form">
-                <div class="space-y-4 mb-6">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">DATE</label>
-                        <input type="date" id="beer-date" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold">
-                    </div>
+            
+            <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-xl">
+                <button id="tab-beer-preset" class="flex-1 py-2 text-xs font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition">🍺 スタイル選択</button>
+                <button id="tab-beer-custom" class="flex-1 py-2 text-xs font-bold rounded-lg text-gray-500 hover:bg-white transition">🧪 カスタム入力</button>
+            </div>
 
+            <form id="beer-form">
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">DATE</label>
+                    <input type="date" id="beer-date" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold">
+                </div>
+
+                <div id="beer-input-preset" class="space-y-4">
                     <div>
                         <div class="flex justify-between items-end mb-1.5">
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-wide">Beer Style</label>
@@ -275,6 +281,55 @@
                         <select id="beer-select" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
                     </div>
 
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
+                            <select id="beer-size" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
+                            <input type="number" inputmode="decimal" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="beer-input-custom" class="hidden space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                         <label class="cursor-pointer group">
+                           <input type="radio" name="customType" value="dry" class="peer hidden" checked>
+                           <div class="p-3 rounded-xl border border-gray-200 bg-white peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 text-center transition group-hover:border-orange-200">
+                             <div class="text-2xl mb-1">🔥</div>
+                             <div class="text-[10px] font-bold">蒸留酒<br>(糖質ゼロ)</div>
+                           </div>
+                         </label>
+                         <label class="cursor-pointer group">
+                           <input type="radio" name="customType" value="sweet" class="peer hidden">
+                           <div class="p-3 rounded-xl border border-gray-200 bg-white peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:text-yellow-700 text-center transition group-hover:border-yellow-200">
+                             <div class="text-2xl mb-1">🍺</div>
+                             <div class="text-[10px] font-bold">醸造酒<br>(糖質あり)</div>
+                           </div>
+                         </label>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                          <label class="block text-xs font-bold text-gray-400 mb-1">度数 (%)</label>
+                          <input type="number" id="custom-abv" inputmode="decimal" placeholder="5.0" step="0.1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold text-center text-lg">
+                        </div>
+                        <div class="flex-1">
+                          <label class="block text-xs font-bold text-gray-400 mb-1">量 (ml)</label>
+                          <input type="number" id="custom-amount" inputmode="decimal" placeholder="350" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold text-center text-lg">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 justify-center pb-2">
+                         <button type="button" class="btn-quick-amount px-3 py-1 bg-gray-100 rounded text-xs font-bold text-gray-500 hover:bg-gray-200 transition" data-amount="350">350ml</button>
+                         <button type="button" class="btn-quick-amount px-3 py-1 bg-gray-100 rounded text-xs font-bold text-gray-500 hover:bg-gray-200 transition" data-amount="500">500ml</button>
+                         <button type="button" class="btn-quick-amount px-3 py-1 bg-gray-100 rounded text-xs font-bold text-gray-500 hover:bg-gray-200 transition" data-amount="180">1合</button>
+                    </div>
+                </div>
+
+                <div class="space-y-4 mt-6 border-t border-gray-100 pt-4">
                     <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-2">
                         <input type="text" id="beer-brewery" placeholder="ブルワリー名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
                         <input type="text" id="beer-brand" placeholder="銘柄名 (任意)" class="w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
@@ -294,17 +349,6 @@
                         </div>
                         <textarea id="beer-memo" rows="2" placeholder="味の感想やメモ..." class="w-full p-2.5 bg-white border border-yellow-200 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none text-sm resize-none"></textarea>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Size</label>
-                            <select id="beer-size" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 font-bold appearance-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide">Count</label>
-                            <input type="number" inputmode="decimal" id="beer-count" min="0.5" step="0.5" placeholder="1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 text-center font-bold text-lg">
-                        </div>
-                    </div>
                     
                     <div class="flex items-center justify-center pt-1">
                         <label class="flex items-center space-x-2 cursor-pointer group">
@@ -313,7 +357,7 @@
                         </label>
                     </div>
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95">記録する</button>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-95 mt-4">記録する</button>
             </form>
         </div>
     </div>

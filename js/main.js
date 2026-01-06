@@ -50,28 +50,69 @@ const handleSaveSettings = () => {
 const handleBeerSubmit = async (e) => {
     e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
-    const s = document.getElementById('beer-select').value;
-    const z = document.getElementById('beer-size').value;
-    const c = parseFloat(document.getElementById('beer-count').value);
     const brewery = document.getElementById('beer-brewery').value;
     const brand = document.getElementById('beer-brand').value;
     const rating = parseInt(document.getElementById('beer-rating').value) || 0;
     const memo = document.getElementById('beer-memo').value;
     const useUntappd = document.getElementById('untappd-check').checked;
-
-    if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
-
-    const kcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
-    const min = kcal / Calc.burnRate(EXERCISE['stepper'].mets);
     
     // 日付指定があればその日付、なければ現在日時
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
 
+    // モード判定
+    const isCustom = !document.getElementById('beer-input-custom').classList.contains('hidden');
+    
+    let logName = '';
+    let logStyle = '';
+    let logSize = '';
+    let totalKcal = 0;
+
+    if (isCustom) {
+        // カスタム入力
+        const abv = parseFloat(document.getElementById('custom-abv').value);
+        const ml = parseFloat(document.getElementById('custom-amount').value);
+        const type = document.querySelector('input[name="customType"]:checked').value; // dry or sweet
+
+        if (!abv || !ml) return UI.showMessage('度数と量を入力してください', 'error');
+
+        // 純アルコール量 (g) = ml * (abv/100) * 0.8
+        const alcoholG = ml * (abv / 100) * 0.8;
+        
+        // カロリー計算
+        // アルコール分: 7kcal/g
+        // 糖質分(Sweet): 0.15kcal/ml (仮定)
+        let kcal = alcoholG * 7;
+        if (type === 'sweet') {
+             kcal += ml * 0.15;
+        }
+        
+        totalKcal = kcal;
+        logName = `Custom ${abv}% ${ml}ml` + (type==='dry' ? '🔥' : '🍺');
+        logStyle = 'Custom';
+        logSize = `${ml}ml`;
+
+    } else {
+        // プリセット入力 (既存ロジック)
+        const s = document.getElementById('beer-select').value;
+        const z = document.getElementById('beer-size').value;
+        const c = parseFloat(document.getElementById('beer-count').value);
+
+        if (!s || !z || !c) return UI.showMessage('入力を確認してください', 'error');
+
+        totalKcal = CALORIES.STYLES[s] * SIZE_DATA[z].ratio * c;
+        logName = `${s} x${c}`;
+        logStyle = s;
+        logSize = z;
+    }
+
+    // 借金時間（分）に変換
+    const min = totalKcal / Calc.burnRate(EXERCISE['stepper'].mets);
+
     await db.logs.add({ 
-        name: `${s} x${c}`, 
+        name: logName, 
         type: '借金', 
-        style: s, // クイック記録用に保存
-        size: z,  // クイック記録用に保存
+        style: logStyle, 
+        size: logSize,
         minutes: -Math.round(min), 
         timestamp: ts, 
         brewery: brewery, 
@@ -95,7 +136,7 @@ const handleBeerSubmit = async (e) => {
     if (useUntappd) {
         let searchTerm = brand;
         if (brewery) searchTerm = `${brewery} ${brand}`;
-        if (!searchTerm) searchTerm = s;
+        if (!searchTerm) searchTerm = logStyle;
         ExternalApp.searchUntappd(searchTerm);
     }
 };
@@ -413,6 +454,17 @@ function bindEvents() {
             currentState.chartRange = e.target.dataset.range;
             refreshUI();
         }
+    });
+
+    // Beer Modal Tabs
+    document.getElementById('tab-beer-preset').addEventListener('click', () => UI.switchBeerInputTab('preset'));
+    document.getElementById('tab-beer-custom').addEventListener('click', () => UI.switchBeerInputTab('custom'));
+    
+    // Custom Amount Buttons
+    document.querySelectorAll('.btn-quick-amount').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('custom-amount').value = this.dataset.amount;
+        });
     });
 
     // Modals Close
