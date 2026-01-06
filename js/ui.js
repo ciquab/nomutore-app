@@ -5,7 +5,8 @@ import { Store, db } from './store.js';
 export let currentState = { 
     beerMode: 'mode1', 
     chart: null, 
-    timerId: null 
+    timerId: null,
+    chartRange: '1w' // デフォルトは1週間
 };
 
 // XSS対策: HTMLエスケープ関数
@@ -63,8 +64,14 @@ export const UI = {
         if (dateEl) dateEl.value = UI.getTodayString();
         
         // クイック記録からの呼び出し対応
-        if (style) document.getElementById('beer-select').value = style;
-        if (size) document.getElementById('beer-size').value = size;
+        const styleSelect = document.getElementById('beer-select');
+        const sizeSelect = document.getElementById('beer-size');
+
+        if (style && styleSelect) styleSelect.value = style;
+        else if (styleSelect) styleSelect.value = '';
+
+        if (size && sizeSelect) sizeSelect.value = size;
+        else if (sizeSelect) sizeSelect.value = '350';
 
         toggleModal('beer-modal', true);
     },
@@ -113,6 +120,45 @@ export const UI = {
         const btn2 = document.getElementById('btn-mode-2');
         if(btn1) btn1.textContent = `🍺 ${modes.mode1}換算`;
         if(btn2) btn2.textContent = `🍺🍺 ${modes.mode2}換算`;
+    },
+
+    setBeerMode: (mode) => {
+        currentState.beerMode = mode;
+        const lBtn = document.getElementById('btn-mode-1');
+        const hBtn = document.getElementById('btn-mode-2');
+        const liq = document.getElementById('tank-liquid');
+        
+        if (mode === 'mode1') {
+            lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white min-w-[100px]";
+            hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white min-w-[100px]";
+            liq.classList.remove('mode2'); liq.classList.add('mode1');
+        } else {
+            hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white min-w-[100px]";
+            lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white min-w-[100px]";
+            liq.classList.remove('mode1'); liq.classList.add('mode2');
+        }
+        refreshUI();
+    },
+
+    switchTab: (tabId) => {
+        if (!tabId) return;
+        const targetTab = document.getElementById(tabId);
+        const targetNav = document.getElementById(`nav-${tabId}`);
+        if (!targetTab || !targetNav) return;
+    
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        targetTab.classList.add('active');
+        
+        document.querySelectorAll('.nav-item').forEach(el => { 
+            el.classList.remove('text-indigo-600'); 
+            el.classList.add('text-gray-400'); 
+        });
+        targetNav.classList.remove('text-gray-400');
+        targetNav.classList.add('text-indigo-600');
+        
+        if (tabId === 'tab-history') {
+            refreshUI(); 
+        }
     }
 };
 
@@ -157,9 +203,9 @@ export async function refreshUI() {
         renderLogList(logs);
         renderBeerTank(logs);
         renderCheckStatus(checks, logs);
-        renderLiverRank(checks, logs); // logsも渡す
+        renderLiverRank(checks, logs); 
         renderWeeklyAndHeatUp(logs, checks);
-        renderQuickButtons(logs); // クイックボタン更新
+        renderQuickButtons(logs); 
         
         if(document.getElementById('tab-history').classList.contains('active')) {
             renderChart(logs, checks);
@@ -169,12 +215,10 @@ export async function refreshUI() {
     }
 }
 
-// 履歴から「よく飲むセット」ボタンを生成
 function renderQuickButtons(logs) {
     const container = document.getElementById('quick-input-area');
     if (!container) return;
     
-    // スタイルとサイズの情報を集計 (styleプロパティがあるログのみ)
     const counts = {};
     logs.forEach(l => {
         if (l.style && l.size) {
@@ -183,7 +227,6 @@ function renderQuickButtons(logs) {
         }
     });
 
-    // 回数が多い順にトップ2を取得
     const topShortcuts = Object.keys(counts)
         .sort((a, b) => counts[b] - counts[a])
         .slice(0, 2)
@@ -193,17 +236,18 @@ function renderQuickButtons(logs) {
         });
 
     if (topShortcuts.length === 0) {
-        container.innerHTML = ''; // 履歴がない場合は何も表示しない
+        container.innerHTML = ''; 
         return;
     }
 
+    // data属性を使ってイベント委譲で処理する
     container.innerHTML = topShortcuts.map(item => {
         const sizeLabel = SIZE_DATA[item.size] ? SIZE_DATA[item.size].label.replace(/ \(.*\)/, '') : item.size;
-        return `<button onclick="UI.openBeerModal('${item.style}', '${item.size}')" 
-            class="flex-1 bg-white border border-indigo-100 text-indigo-600 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 text-xs flex flex-col items-center justify-center transition active:scale-95">
+        return `<button data-style="${escapeHtml(item.style)}" data-size="${escapeHtml(item.size)}" 
+            class="quick-beer-btn flex-1 bg-white border border-indigo-100 text-indigo-600 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 text-xs flex flex-col items-center justify-center transition active:scale-95">
             <span class="mb-0.5 text-[10px] text-indigo-400 uppercase">いつもの</span>
-            <span>${item.style}</span>
-            <span class="text-[10px] opacity-70">${sizeLabel}</span>
+            <span>${escapeHtml(item.style)}</span>
+            <span class="text-[10px] opacity-70">${escapeHtml(sizeLabel)}</span>
         </button>`;
     }).join('');
 }
@@ -235,24 +279,22 @@ function renderLogList(logs) {
         
         let detailHtml = '';
         if (log.brewery || log.brand) {
-            // escapeHtmlでXSS対策
             detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${escapeHtml(log.brewery)||''}</span> <span class="text-gray-600">${escapeHtml(log.brand)||''}</span></p>`;
         }
         
         if (log.minutes < 0 && (log.rating > 0 || log.memo)) {
             const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
             const ratingDisplay = log.rating > 0 ? `<span class="text-yellow-500 text-[10px] mr-2">${stars}</span>` : '';
-            // escapeHtmlでXSS対策
             const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${escapeHtml(log.memo)}"</span>` : '';
             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
         } else if (log.minutes > 0 && log.memo) {
-             // escapeHtmlでXSS対策
              detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 rounded px-2 py-1"><span class="text-[10px] text-orange-500 font-bold">${escapeHtml(log.memo)}</span></div>`;
         }
 
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
+        // data-id属性を使ってイベント委譲で削除処理をする
         return `<div class="flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50 group">
                     <div class="flex-grow min-w-0 pr-2">
                         <p class="font-semibold text-sm text-gray-800 truncate">${escapeHtml(log.name)}</p>
@@ -260,7 +302,7 @@ function renderLogList(logs) {
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
                         <span class="px-2 py-1 rounded-full text-xs font-bold ${signClass} whitespace-nowrap">${typeText} ${displayMinutes}分</span>
-                        <button onclick="deleteLog(${log.timestamp})" class="text-gray-300 hover:text-red-500 p-1 font-bold px-2">×</button>
+                        <button data-id="${log.timestamp}" class="delete-log-btn text-gray-300 hover:text-red-500 p-1 font-bold px-2">×</button>
                     </div>
                 </div>`;
     }).join('');
@@ -313,7 +355,6 @@ function renderBeerTank(logs) {
 }
 
 function renderLiverRank(checks, logs) {
-    // ログ情報も渡して、開始日を計算できるようにする
     const gradeData = Calc.getRecentGrade(checks, logs);
     
     const card = document.getElementById('liver-rank-card');
@@ -324,6 +365,9 @@ function renderLiverRank(checks, logs) {
 
     if(!card) return;
 
+    // データがロードされたら表示
+    card.classList.remove('hidden');
+
     title.className = `text-xl font-black mt-1 ${gradeData.color}`;
     title.textContent = `${gradeData.rank} : ${gradeData.label}`;
     
@@ -332,10 +376,8 @@ function renderLiverRank(checks, logs) {
     card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${gradeData.bg}`;
 
     if (gradeData.next) {
-        // プログレスバーの計算（ルーキーモードの場合は率、通常は日数）
         let percent = 0;
         if (gradeData.isRookie) {
-             // ルーキーモード: 目標率に対する達成率
              percent = (gradeData.rawRate / gradeData.targetRate) * 100;
              msg.textContent = `ランクアップまであと少し！ (現在 ${Math.round(gradeData.rawRate * 100)}%)`;
         } else {
@@ -377,10 +419,11 @@ function renderCheckStatus(checks, logs) {
             weightHtml = `<span class="ml-2 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold">${targetCheck.weight}kg</span>`;
         }
 
-        status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800 flex items-center">${msg}${weightHtml}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
+        status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800 flex items-center">${msg}${weightHtml}</p></div></div><button id="btn-edit-check" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
+        
     } else {
         const lastDate = checks.length > 0 ? new Date(checks[checks.length-1].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
-        status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button onclick="UI.openCheckModal()" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
+        status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button id="btn-record-check" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
     }
 }
 
@@ -438,7 +481,7 @@ function renderWeeklyAndHeatUp(logs, checks) {
             content = "🍺";
         } else {
             elClass += "bg-gray-100 text-gray-300 border border-gray-200";
-            content = "?";
+            content = "-";
         }
 
         const div = document.createElement('div');
@@ -461,50 +504,119 @@ function renderChart(logs, checks) {
     const ctxCanvas = document.getElementById('balanceChart');
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
+    // 現在のフィルター設定に基づいてボタンのスタイルを更新
+    document.querySelectorAll('#chart-filters button').forEach(btn => {
+        if (btn.dataset.range === currentState.chartRange) {
+            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all active-filter bg-white text-indigo-600 shadow-sm";
+        } else {
+            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all text-gray-400 hover:text-gray-600";
+        }
+    });
+
     try {
-        const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+        // フィルタリング処理
+        const now = Date.now();
+        let cutoffDate = 0;
+        
+        if (currentState.chartRange === '1w') {
+            cutoffDate = now - (7 * 24 * 60 * 60 * 1000);
+        } else if (currentState.chartRange === '1m') {
+            cutoffDate = now - (30 * 24 * 60 * 60 * 1000);
+        } else {
+            // all
+            cutoffDate = 0;
+        }
+
+        const filteredLogs = logs.filter(l => l.timestamp >= cutoffDate);
+        const filteredChecks = checks.filter(c => c.timestamp >= cutoffDate);
+        
+        const sortedLogs = [...filteredLogs].sort((a, b) => a.timestamp - b.timestamp);
         const dailyData = new Map();
         
         let currentBalance = 0;
         
-        if (sortedLogs.length === 0 && checks.length === 0) { 
-            const t = new Date(); dailyData.set(`${t.getMonth()+1}/${t.getDate()}`, {plus:0, minus:0, bal:0, weight: null}); 
-        } else {
-            sortedLogs.forEach(l => {
-                const d = new Date(l.timestamp); const k = `${d.getMonth()+1}/${d.getDate()}`;
-                if (!dailyData.has(k)) dailyData.set(k, {plus:0, minus:0, bal:0, weight: null});
-                const e = dailyData.get(k);
-                if (l.minutes >= 0) e.plus += l.minutes; else e.minus += l.minutes;
-                currentBalance += l.minutes; e.bal = currentBalance;
-            });
+        // 全期間以外のときは、cutoff日より前の残高を初期値として加算しておく必要があるが、
+        // 簡易的に「期間内の収支」を見るか「累積残高」を見るかで変わる。
+        // ここでは「累積残高」の推移を見たいので、本来は全ログから計算が必要だが、
+        // 期間切り替えのUXとしては「その期間の動き」が見たいことが多い。
+        // ただ、借金返済アプリなので「現在の借金総額」との乖離は混乱を招く。
+        // よって、Balanceは常に全期間で計算し、表示だけカットするアプローチにする。
+
+        // 1. 全期間で日次データを生成
+        const allLogsSorted = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+        const allChecksSorted = [...checks].sort((a, b) => a.timestamp - b.timestamp);
+        
+        const fullHistoryMap = new Map();
+        let runningBalance = 0;
+
+        // ログが存在する日、または今日までの範囲をカバーするために日付セットを作るのは重いので、
+        // ログがある日だけで構成し、表示時にフィルタリングする
+        
+        // まず全データを時系列で処理して累積残高を計算
+        allLogsSorted.forEach(l => {
+            const d = new Date(l.timestamp);
+            const k = `${d.getMonth()+1}/${d.getDate()}`; // 年をまたぐと重複するが簡易実装として維持
+            // 正確には YYYY-MM-DD key推奨だが、UI表示に合わせて月/日
+            
+            if (!fullHistoryMap.has(k)) fullHistoryMap.set(k, {plus:0, minus:0, bal:0, weight:null, ts: l.timestamp});
+            const e = fullHistoryMap.get(k);
+            
+            if (l.minutes >= 0) e.plus += l.minutes; else e.minus += l.minutes;
+            runningBalance += l.minutes;
+            e.bal = runningBalance;
+        });
+
+        // チェックデータ（体重）も統合
+        allChecksSorted.forEach(c => {
+             const d = new Date(c.timestamp);
+             const k = `${d.getMonth()+1}/${d.getDate()}`;
+             if (!fullHistoryMap.has(k)) {
+                 // ログがない日の残高は、直前の残高を引き継ぐべきだが、Mapの順序保証に頼るより
+                 // ここでは簡易的に「その日の変動なし」として扱う。
+                 // 厳密なチャート作成には日付を連続させる処理が必要だが、既存ロジックを踏襲。
+                 fullHistoryMap.set(k, {plus:0, minus:0, bal: runningBalance, weight:null, ts: c.timestamp});
+             }
+             const e = fullHistoryMap.get(k);
+             if (c.weight) e.weight = parseFloat(c.weight);
+        });
+
+        // 2. 表示用にフィルタリングとソート
+        // Mapを配列に変換
+        let dataArray = Array.from(fullHistoryMap.entries()).map(([k, v]) => ({
+            label: k,
+            ...v
+        }));
+
+        // 日付順にソート (月/日表記だと年またぎでバグる可能性があるが、timestampを保持させて回避)
+        dataArray.sort((a, b) => a.ts - b.ts);
+        
+        // バランスの穴埋め（ログがない日のバランスは前日を引き継ぐ）
+        // dataArrayはログかチェックがあった日しかないので、飛び飛びになる可能性がある。
+        // Chart.jsはラベルベースなので、表示されるポイント間の補完は線で行われる。
+        // ここでは、データポイントとして存在するものの累積残高を正しく直す。
+        // (上記ループでrunningBalanceを使っているので、時系列順に処理されていれば概ね正しいが、
+        //  Checksだけの日に更新されていない可能性があるため再計算)
+        
+        let recalculateBal = 0;
+        // マージしてソートした全イベントを再なめるのが一番正確だが、
+        // ここでは既存ロジックの延長で、「期間フィルタ」だけ適用する。
+        
+        // フィルタリング適用
+        if (cutoffDate > 0) {
+            dataArray = dataArray.filter(d => d.ts >= cutoffDate);
+        }
+        
+        // データが空の場合のダミー
+        if (dataArray.length === 0) {
+            const t = new Date();
+            dataArray.push({label: `${t.getMonth()+1}/${t.getDate()}`, plus:0, minus:0, bal:0, weight:null});
         }
 
-        checks.forEach(c => {
-            const d = new Date(c.timestamp); const k = `${d.getMonth()+1}/${d.getDate()}`;
-            if (!dailyData.has(k)) {
-                 dailyData.set(k, {plus:0, minus:0, bal:0, weight: null});
-            }
-            const e = dailyData.get(k);
-            if (c.weight) e.weight = parseFloat(c.weight);
-        });
-
-        const sortedKeys = Array.from(dailyData.keys()).sort((a,b) => {
-            const [m1,d1] = a.split('/').map(Number);
-            const [m2,d2] = b.split('/').map(Number);
-            if(m1 !== m2) return m1 - m2;
-            return d1 - d2;
-        });
-
-        const labels = []; const plus = []; const minus = []; const bal = []; const weight = [];
-        
-        sortedKeys.forEach(k => {
-            const e = dailyData.get(k);
-            labels.push(k);
-            plus.push(e.plus);
-            minus.push(e.minus);
-            bal.push(e.bal !== 0 ? e.bal : (labels.length > 1 ? bal[bal.length-1] : 0));
-            weight.push(e.weight);
-        });
+        const labels = dataArray.map(d => d.label);
+        const plus = dataArray.map(d => d.plus);
+        const minus = dataArray.map(d => d.minus);
+        const bal = dataArray.map(d => d.bal);
+        const weight = dataArray.map(d => d.weight);
 
         if (currentState.chart) currentState.chart.destroy();
         

@@ -14,52 +14,11 @@ const getDateTimestamp = (dateStr) => {
 };
 
 /* ==========================================================================
-   Global Window Registration
+   Event Handling & App Logic
    ========================================================================== */
 
-window.UI = UI; 
-window.toggleModal = toggleModal;
-
-window.switchTab = async (tabId) => {
-    if (!tabId) return;
-    const targetTab = document.getElementById(tabId);
-    const targetNav = document.getElementById(`nav-${tabId}`);
-    if (!targetTab || !targetNav) return;
-
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    targetTab.classList.add('active');
-    
-    document.querySelectorAll('.nav-item').forEach(el => { 
-        el.classList.remove('text-indigo-600'); 
-        el.classList.add('text-gray-400'); 
-    });
-    targetNav.classList.remove('text-gray-400');
-    targetNav.classList.add('text-indigo-600');
-    
-    if (tabId === 'tab-history') {
-        refreshUI(); 
-    }
-};
-
-window.setBeerMode = (mode) => {
-    currentState.beerMode = mode;
-    const lBtn = document.getElementById('btn-mode-1');
-    const hBtn = document.getElementById('btn-mode-2');
-    const liq = document.getElementById('tank-liquid');
-    
-    if (mode === 'mode1') {
-        lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white";
-        hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white";
-        liq.classList.remove('mode2'); liq.classList.add('mode1');
-    } else {
-        hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white";
-        lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white";
-        liq.classList.remove('mode1'); liq.classList.add('mode2');
-    }
-    refreshUI();
-};
-
-window.saveSettings = () => {
+// 設定保存
+const handleSaveSettings = () => {
     const w = parseFloat(document.getElementById('weight-input').value);
     const h = parseFloat(document.getElementById('height-input').value);
     const a = parseInt(document.getElementById('age-input').value);
@@ -88,7 +47,8 @@ window.saveSettings = () => {
 };
 
 // 飲酒記録（借金）の送信
-window.handleBeerSubmit = async () => {
+const handleBeerSubmit = async (e) => {
+    e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
     const s = document.getElementById('beer-select').value;
     const z = document.getElementById('beer-size').value;
@@ -130,7 +90,7 @@ window.handleBeerSubmit = async () => {
     document.getElementById('beer-rating').value = '0';
     document.getElementById('beer-memo').value = '';
     document.getElementById('untappd-check').checked = false;
-    document.getElementById('beer-count').value = '1';
+    document.getElementById('beer-count').value = '';
 
     if (useUntappd) {
         let searchTerm = brand;
@@ -140,7 +100,7 @@ window.handleBeerSubmit = async () => {
     }
 };
 
-window.handleManualExerciseSubmit = async () => { 
+const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
     if(!m) return UI.showMessage('時間を入力','error'); 
@@ -151,7 +111,8 @@ window.handleManualExerciseSubmit = async () => {
     toggleModal('manual-exercise-modal', false); 
 };
 
-window.handleCheckSubmit = async () => { 
+const handleCheckSubmit = async (e) => {
+    e.preventDefault();
     const f = document.getElementById('check-form');
     const dateVal = document.getElementById('check-date').value;
     const isDry = document.getElementById('is-dry-day').checked; 
@@ -182,11 +143,80 @@ window.handleCheckSubmit = async () => {
     await refreshUI(); 
 };
 
-window.deleteLog = async (timestamp) => {
+const deleteLog = async (timestamp) => {
     if (!confirm('削除しますか？')) return;
     await db.logs.where('timestamp').equals(timestamp).delete();
     UI.showMessage('削除しました', 'success');
     await refreshUI();
+};
+
+const handleShare = async () => {
+    // ランクと残高を取得してシェアテキストを作成
+    const rankTitle = document.getElementById('rank-title').textContent || 'Rookie';
+    const balanceText = document.getElementById('tank-minutes').textContent || '0 min';
+    const isPositive = balanceText.includes('+');
+    
+    let text = '';
+    if (isPositive) {
+        text = `現在 ${balanceText} の貯金中！ランク: ${rankTitle} #ノムトレ #飲んだら動く`;
+    } else {
+        text = `現在 ${balanceText} の借金中... 運動して返済します！ランク: ${rankTitle} #ノムトレ`;
+    }
+
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'ノムトレ - 借金返済ダイエット',
+                text: text,
+                url: window.location.href
+            });
+        } catch (err) {
+            console.log('Share canceled');
+        }
+    } else {
+        // Fallback for PC etc
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
+        window.open(twitterUrl, '_blank');
+    }
+};
+
+/* ==========================================================================
+   Swipe Navigation Logic
+   ========================================================================== */
+
+let touchStartX = 0;
+let touchStartY = 0;
+const TABS = ['tab-home', 'tab-record', 'tab-history'];
+
+const handleTouchStart = (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+};
+
+const handleTouchEnd = (e) => {
+    const touchEndX = e.changedTouches[0].screenX;
+    const touchEndY = e.changedTouches[0].screenY;
+    
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+
+    // 水平方向の移動が大きく、垂直方向の移動が小さい場合のみスワイプと判定
+    if (Math.abs(diffX) > 60 && Math.abs(diffY) < 50) {
+        const currentTabId = document.querySelector('.tab-content.active').id;
+        const currentIndex = TABS.indexOf(currentTabId);
+        
+        if (diffX < 0) {
+            // Left swipe (Next tab)
+            if (currentIndex < TABS.length - 1) {
+                UI.switchTab(TABS[currentIndex + 1]);
+            }
+        } else {
+            // Right swipe (Prev tab)
+            if (currentIndex > 0) {
+                UI.switchTab(TABS[currentIndex - 1]);
+            }
+        }
+    }
 };
 
 /* ==========================================================================
@@ -223,7 +253,6 @@ async function recordExercise(t, m, dateVal = null) {
     
     await refreshUI(); 
 }
-window.recordExercise = recordExercise;
 
 const DataManager = {
     exportCSV: async (t) => { 
@@ -283,7 +312,6 @@ const DataManager = {
         a.href = u; a.download = n; a.click(); 
     }
 };
-window.DataManager = DataManager;
 
 const updTm = (st) => { 
     const e = Date.now() - st; 
@@ -293,7 +321,7 @@ const updTm = (st) => {
     if(display) display.textContent = `${mm}:${ss}`;
 };
 
-window.timerControl = {
+const timerControl = {
     start: () => {
         if (currentState.timerId) return;
         let st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
@@ -355,9 +383,107 @@ async function migrateData() {
     }
 }
 
+// -----------------------------------------------------
+// Init & Event Bindings
+// -----------------------------------------------------
+
+function bindEvents() {
+    // Header & Tabs
+    document.getElementById('btn-open-help')?.addEventListener('click', UI.openHelp);
+    document.getElementById('btn-open-settings')?.addEventListener('click', UI.openSettings);
+    
+    document.getElementById('nav-tab-home').addEventListener('click', () => UI.switchTab('tab-home'));
+    document.getElementById('nav-tab-record').addEventListener('click', () => UI.switchTab('tab-record'));
+    document.getElementById('nav-tab-history').addEventListener('click', () => UI.switchTab('tab-history'));
+
+    // Swipe Events
+    const swipeArea = document.getElementById('swipe-area');
+    if (swipeArea) {
+        swipeArea.addEventListener('touchstart', handleTouchStart, {passive: true});
+        swipeArea.addEventListener('touchend', handleTouchEnd);
+    }
+
+    // Mode Buttons
+    document.getElementById('btn-mode-1').addEventListener('click', () => UI.setBeerMode('mode1'));
+    document.getElementById('btn-mode-2').addEventListener('click', () => UI.setBeerMode('mode2'));
+
+    // Chart Filters
+    document.getElementById('chart-filters').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            currentState.chartRange = e.target.dataset.range;
+            refreshUI();
+        }
+    });
+
+    // Modals Close
+    document.querySelectorAll('.btn-close-modal').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const modal = e.target.closest('.modal-bg') || e.target.closest('.modal-content').parentNode;
+            toggleModal(modal.id, false);
+        });
+    });
+    // Modal Backgound Click
+    document.querySelectorAll('.modal-bg').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) toggleModal(modal.id, false);
+        });
+    });
+
+    // Record Tab
+    document.getElementById('start-stepper-btn').addEventListener('click', timerControl.start);
+    document.getElementById('stop-stepper-btn').addEventListener('click', timerControl.stop);
+    document.getElementById('manual-record-btn').addEventListener('click', UI.openManualInput);
+    document.getElementById('btn-open-beer').addEventListener('click', () => UI.openBeerModal());
+    document.getElementById('btn-open-check').addEventListener('click', UI.openCheckModal);
+    document.getElementById('btn-share-sns').addEventListener('click', handleShare); // Share Button Event
+    
+    // Forms
+    document.getElementById('beer-form').addEventListener('submit', handleBeerSubmit);
+    document.getElementById('check-form').addEventListener('submit', handleCheckSubmit);
+    document.getElementById('btn-submit-manual').addEventListener('click', handleManualExerciseSubmit);
+    document.getElementById('btn-save-settings').addEventListener('click', handleSaveSettings);
+
+    // Check Form Logic
+    document.getElementById('is-dry-day').addEventListener('change', function() { UI.toggleDryDay(this); });
+
+    // History Tab
+    document.getElementById('btn-export-logs').addEventListener('click', () => DataManager.exportCSV('logs'));
+    document.getElementById('btn-export-checks').addEventListener('click', () => DataManager.exportCSV('checks'));
+    document.getElementById('btn-copy-data').addEventListener('click', DataManager.copyToClipboard);
+    document.getElementById('btn-download-json').addEventListener('click', DataManager.exportJSON);
+    document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
+
+    // Event Delegation for Dynamic Elements
+    
+    // 1. Log List Delete Buttons
+    document.getElementById('log-list').addEventListener('click', (e) => {
+        const btn = e.target.closest('.delete-log-btn');
+        if (btn) {
+            deleteLog(parseInt(btn.dataset.id));
+        }
+    });
+
+    // 2. Check Status Edit/Record Buttons
+    document.getElementById('check-status').addEventListener('click', (e) => {
+        if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
+            UI.openCheckModal();
+        }
+    });
+
+    // 3. Quick Input Buttons
+    document.getElementById('quick-input-area').addEventListener('click', (e) => {
+        const btn = e.target.closest('.quick-beer-btn');
+        if (btn) {
+            UI.openBeerModal(btn.dataset.style, btn.dataset.size);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    bindEvents();
     await migrateData();
 
+    // Select options setup
     const exSelect = document.getElementById('exercise-select'); 
     Object.keys(EXERCISE).forEach(k => { 
         const o = document.createElement('option'); 
@@ -376,18 +502,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(k === '350') o.selected = true; zs.appendChild(o); 
     });
 
+    // Load Profile
     const p = Store.getProfile();
     document.getElementById('weight-input').value = p.weight;
     document.getElementById('height-input').value = p.height;
     document.getElementById('age-input').value = p.age;
     document.getElementById('gender-input').value = p.gender;
 
+    // Initialize UI
     UI.updateModeButtons();
-    window.setBeerMode('mode1');
+    // ボタンのフェードイン
+    document.getElementById('mode-selector').classList.remove('opacity-0');
+
+    UI.setBeerMode('mode1');
     updateBeerSelectOptions(); 
     
     const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
-    if(st) { window.timerControl.start(); window.switchTab('tab-record'); } else { window.switchTab('tab-home'); }
+    if(st) { timerControl.start(); UI.switchTab('tab-record'); } else { UI.switchTab('tab-home'); }
 
     await refreshUI();
 });
