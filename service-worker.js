@@ -1,11 +1,18 @@
-const CACHE_NAME = 'nomutore-v4';
+const CACHE_NAME = 'nomutore-v5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
+    './css/style.css',      // 追加
+    './js/main.js',         // 追加
+    './js/constants.js',    // 追加
+    './js/store.js',        // 追加
+    './js/logic.js',        // 追加
+    './js/ui.js',           // 追加
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap',
     'https://cdn.tailwindcss.com',
-    'https://cdn.jsdelivr.net/npm/chart.js'
+    'https://cdn.jsdelivr.net/npm/chart.js',
+    'https://unpkg.com/dexie@3.2.4/dist/dexie.js'
 ];
 
 // インストール時にキャッシュする
