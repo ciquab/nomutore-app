@@ -45,6 +45,22 @@
     </script>
     
     <link rel="stylesheet" href="css/style.css">
+<script>
+    window.onerror = function(msg, url, line, col, error) {
+        var e = document.createElement('div');
+        e.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:9999;padding:10px;font-size:12px;word-break:break-all;overflow:auto;max-height:50vh;';
+        e.innerHTML = '<strong>Error:</strong> ' + msg + '<br>Line: ' + line + '<br>URL: ' + url;
+        document.body.appendChild(e);
+        return false;
+    };
+    
+    window.addEventListener('unhandledrejection', function(event) {
+        var e = document.createElement('div');
+        e.style.cssText = 'position:fixed;bottom:0;left:0;width:100%;background:blue;color:white;z-index:9999;padding:10px;font-size:12px;word-break:break-all;overflow:auto;max-height:50vh;';
+        e.innerHTML = '<strong>Promise Error:</strong> ' + event.reason;
+        document.body.appendChild(e);
+    });
+</script>
 </head>
 <body class="min-h-screen text-gray-800 select-none overscroll-none">
 
