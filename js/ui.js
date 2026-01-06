@@ -54,6 +54,18 @@ export const UI = {
         return `${y}-${m}-${day}`;
     },
 
+    // テーマ適用ロジック
+    applyTheme: (theme) => {
+        const root = document.documentElement;
+        const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (theme === 'dark' || (theme === 'system' && isSystemDark)) {
+            root.classList.add('dark');
+        } else {
+            root.classList.remove('dark');
+        }
+    },
+
     toggleDryDay: (cb) => {
         const section = document.getElementById('drinking-section');
         if (section) section.classList.toggle('hidden-area', cb.checked);
@@ -90,14 +102,18 @@ export const UI = {
         const presetContent = document.getElementById('beer-input-preset');
         const customContent = document.getElementById('beer-input-custom');
 
+        // ダークモード対応クラス
+        const activeClass = "bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
+        const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600";
+
         if (mode === 'preset') {
-            presetTab.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition";
-            customTab.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500 hover:bg-white transition";
+            presetTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${activeClass}`;
+            customTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${inactiveClass}`;
             presetContent.classList.remove('hidden');
             customContent.classList.add('hidden');
         } else {
-            customTab.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white text-indigo-600 shadow-sm transition";
-            presetTab.className = "flex-1 py-2 text-xs font-bold rounded-lg text-gray-500 hover:bg-white transition";
+            customTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${activeClass}`;
+            presetTab.className = `flex-1 py-2 text-xs font-bold rounded-lg transition ${inactiveClass}`;
             customContent.classList.remove('hidden');
             presetContent.classList.add('hidden');
         }
@@ -134,6 +150,9 @@ export const UI = {
         document.getElementById('setting-mode-2').value = modes.mode2;
         document.getElementById('setting-base-exercise').value = Store.getBaseExercise();
         
+        // テーマ設定の読み込み
+        document.getElementById('theme-input').value = Store.getTheme();
+        
         toggleModal('settings-modal', true);
     },
 
@@ -155,13 +174,16 @@ export const UI = {
         const hBtn = document.getElementById('btn-mode-2');
         const liq = document.getElementById('tank-liquid');
         
+        const activeClass = "bg-indigo-600 text-white shadow-sm";
+        const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700";
+
         if (mode === 'mode1') {
-            lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white min-w-[100px]";
-            hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white min-w-[100px]";
+            lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
+            hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
             liq.classList.remove('mode2'); liq.classList.add('mode1');
         } else {
-            hBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white min-w-[100px]";
-            lBtn.className = "px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 hover:bg-white min-w-[100px]";
+            hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
+            lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
             liq.classList.remove('mode1'); liq.classList.add('mode2');
         }
         refreshUI();
@@ -177,11 +199,11 @@ export const UI = {
         targetTab.classList.add('active');
         
         document.querySelectorAll('.nav-item').forEach(el => { 
-            el.classList.remove('text-indigo-600'); 
-            el.classList.add('text-gray-400'); 
+            el.classList.remove('text-indigo-600', 'dark:text-indigo-400'); 
+            el.classList.add('text-gray-400', 'dark:text-gray-500'); 
         });
-        targetNav.classList.remove('text-gray-400');
-        targetNav.classList.add('text-indigo-600');
+        targetNav.classList.remove('text-gray-400', 'dark:text-gray-500');
+        targetNav.classList.add('text-indigo-600', 'dark:text-indigo-400');
         
         if (tabId === 'tab-history') {
             refreshUI(); 
@@ -271,7 +293,7 @@ function renderQuickButtons(logs) {
     container.innerHTML = topShortcuts.map(item => {
         const sizeLabel = SIZE_DATA[item.size] ? SIZE_DATA[item.size].label.replace(/ \(.*\)/, '') : item.size;
         return `<button data-style="${escapeHtml(item.style)}" data-size="${escapeHtml(item.size)}" 
-            class="quick-beer-btn flex-1 bg-white border border-indigo-100 text-indigo-600 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 text-xs flex flex-col items-center justify-center transition active:scale-95">
+            class="quick-beer-btn flex-1 bg-white dark:bg-gray-800 border border-indigo-100 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 dark:hover:bg-gray-700 text-xs flex flex-col items-center justify-center transition active:scale-95">
             <span class="mb-0.5 text-[10px] text-indigo-400 uppercase">いつもの</span>
             <span>${escapeHtml(item.style)}</span>
             <span class="text-[10px] opacity-70">${escapeHtml(sizeLabel)}</span>
@@ -285,7 +307,7 @@ function renderLogList(logs) {
     if (!list) return;
 
     if (logs.length === 0) { 
-        list.innerHTML = '<p class="text-gray-500 p-4 text-center">まだ記録がありません。</p>'; 
+        list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 p-4 text-center">まだ記録がありません。</p>'; 
         return; 
     }
     
@@ -300,36 +322,36 @@ function renderLogList(logs) {
     list.innerHTML = logs.map(log => {
         const isDebt = log.minutes < 0;
         const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
-        const signClass = isDebt ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
+        const signClass = isDebt ? 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-300' : 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-300';
         
         const date = new Date(log.timestamp).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         
         let detailHtml = '';
         if (log.brewery || log.brand) {
-            detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600">${escapeHtml(log.brewery)||''}</span> <span class="text-gray-600">${escapeHtml(log.brand)||''}</span></p>`;
+            detailHtml += `<p class="text-xs mt-0.5"><span class="font-bold text-gray-600 dark:text-gray-400">${escapeHtml(log.brewery)||''}</span> <span class="text-gray-600 dark:text-gray-400">${escapeHtml(log.brand)||''}</span></p>`;
         }
         
         if (log.minutes < 0 && (log.rating > 0 || log.memo)) {
             const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
             const ratingDisplay = log.rating > 0 ? `<span class="text-yellow-500 text-[10px] mr-2">${stars}</span>` : '';
-            const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400">"${escapeHtml(log.memo)}"</span>` : '';
-            detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
+            const memoDisplay = log.memo ? `<span class="text-[10px] text-gray-400 dark:text-gray-500">"${escapeHtml(log.memo)}"</span>` : '';
+            detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-gray-50 dark:bg-gray-700 rounded px-2 py-1">${ratingDisplay}${memoDisplay}</div>`;
         } else if (log.minutes > 0 && log.memo) {
-             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 rounded px-2 py-1"><span class="text-[10px] text-orange-500 font-bold">${escapeHtml(log.memo)}</span></div>`;
+             detailHtml += `<div class="mt-1 flex flex-wrap items-center bg-orange-50 dark:bg-orange-900/20 rounded px-2 py-1"><span class="text-[10px] text-orange-500 dark:text-orange-400 font-bold">${escapeHtml(log.memo)}</span></div>`;
         }
 
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
         // data-id属性を使ってイベント委譲で削除処理をする
-        return `<div class="flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50 group">
+        return `<div class="flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors">
                     <div class="flex-grow min-w-0 pr-2">
-                        <p class="font-semibold text-sm text-gray-800 truncate">${escapeHtml(log.name)}</p>
+                        <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
                         ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
                         <span class="px-2 py-1 rounded-full text-xs font-bold ${signClass} whitespace-nowrap">${typeText} ${displayMinutes}分</span>
-                        <button data-id="${log.timestamp}" class="delete-log-btn text-gray-300 hover:text-red-500 p-1 font-bold px-2">×</button>
+                        <button data-id="${log.timestamp}" class="delete-log-btn text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 p-1 font-bold px-2">×</button>
                     </div>
                 </div>`;
     }).join('');
@@ -363,10 +385,10 @@ function renderBeerTank(logs) {
         
         minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
         
-        if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500'; }
+        if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500 dark:text-gray-400'; }
         else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500'; }
-        else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600'; }
-        else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800'; }
+        else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
+        else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
     } else {
         liquid.style.height = '0%';
         emptyIcon.style.opacity = '1';
@@ -400,7 +422,23 @@ function renderLiverRank(checks, logs) {
     
     countEl.textContent = gradeData.current;
     
-    card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden ${gradeData.bg}`;
+    // ダークモード対応の背景色オーバーライドはCSSクラスで行うか、TailwindのクラスをJSで制御する
+    // ここではシンプルにするため、gradeData.bgを使っているが、これは bg-orange-100 などのため
+    // ダークモード時は色が明るすぎる。dark:bg-orange-900 などを付与する必要がある。
+    
+    // 簡易的なマッピング
+    const darkBgMap = {
+        'bg-orange-100': 'dark:bg-orange-900/30 dark:border-orange-800',
+        'bg-indigo-100': 'dark:bg-indigo-900/30 dark:border-indigo-800',
+        'bg-green-100': 'dark:bg-green-900/30 dark:border-green-800',
+        'bg-gray-100': 'dark:bg-gray-700 dark:border-gray-600',
+        'bg-purple-100': 'dark:bg-purple-900/30 dark:border-purple-800',
+        'bg-red-50': 'dark:bg-red-900/20 dark:border-red-800'
+    };
+    
+    const darkClasses = darkBgMap[gradeData.bg] || '';
+    
+    card.className = `mx-2 mt-4 mb-2 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors ${gradeData.bg} ${darkClasses}`;
 
     if (gradeData.next) {
         let percent = 0;
@@ -439,18 +477,24 @@ function renderCheckStatus(checks, logs) {
     if (type !== 'none') {
         const msg = getCheckMessage(targetCheck, logs);
         const title = type === 'today' ? "Today's Condition" : "Yesterday's Check";
-        const style = type === 'today' ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-green-400 border-l-4";
+        
+        // ダークモード対応スタイル
+        const style = type === 'today' 
+            ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300" 
+            : "bg-white dark:bg-gray-800 border-green-400 border-l-4";
         
         let weightHtml = '';
         if(targetCheck.weight) {
-            weightHtml = `<span class="ml-2 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold">${targetCheck.weight}kg</span>`;
+            weightHtml = `<span class="ml-2 text-[10px] bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-300 font-bold">${targetCheck.weight}kg</span>`;
         }
 
-        status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold text-gray-800 flex items-center">${msg}${weightHtml}</p></div></div><button id="btn-edit-check" class="bg-white bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200">編集</button></div>`;
+        const textColor = type === 'today' ? '' : 'text-gray-800 dark:text-gray-200';
+
+        status.innerHTML = `<div class="p-3 rounded-xl border ${style} flex justify-between items-center shadow-sm transition-colors"><div class="flex items-center gap-3"><span class="text-2xl">${type==='today'?'😎':'✅'}</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">${title}</p><p class="text-sm font-bold ${textColor} flex items-center">${msg}${weightHtml}</p></div></div><button id="btn-edit-check" class="bg-white dark:bg-gray-700 bg-opacity-50 hover:bg-opacity-100 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border border-gray-200 dark:border-gray-600 dark:text-white">編集</button></div>`;
         
     } else {
         const lastDate = checks.length > 0 ? new Date(checks[checks.length-1].timestamp).toLocaleDateString('ja-JP', {month:'2-digit', day:'2-digit'}) : 'なし';
-        status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 text-yellow-800 border-yellow-200 flex justify-between items-center shadow-sm"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button id="btn-record-check" class="bg-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 animate-pulse text-yellow-800">記録する</button></div>`;
+        status.innerHTML = `<div class="p-3 rounded-xl border bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800 flex justify-between items-center shadow-sm transition-colors"><div class="flex items-center gap-3"><span class="text-2xl">👋</span><div><p class="text-[10px] opacity-70 font-bold uppercase tracking-wider">Daily Check</p><p class="text-sm font-bold">昨日の振り返りをしましょう！</p><p class="text-[10px] opacity-60">最終: ${lastDate}</p></div></div><button id="btn-record-check" class="bg-white dark:bg-gray-800 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm border border-yellow-300 dark:border-yellow-700 animate-pulse text-yellow-800 dark:text-yellow-400">記録する</button></div>`;
     }
 }
 
@@ -476,7 +520,7 @@ function renderWeeklyAndHeatUp(logs, checks) {
             badge.className = "mt-1 px-2 py-0.5 bg-orange-500 rounded-full text-[10px] font-bold text-white shadow-sm animate-pulse";
         } else {
             badge.textContent = "x1.0 (Normal)";
-            badge.className = "mt-1 px-2 py-0.5 bg-white rounded-full text-[10px] font-bold text-gray-400 shadow-sm border border-orange-100";
+            badge.className = "mt-1 px-2 py-0.5 bg-white dark:bg-gray-700 rounded-full text-[10px] font-bold text-gray-400 shadow-sm border border-orange-100 dark:border-gray-600";
         }
     }
 
@@ -497,17 +541,17 @@ function renderWeeklyAndHeatUp(logs, checks) {
         let content = "";
 
         if (isToday) {
-            elClass += "border-2 border-indigo-500 bg-white text-indigo-500 font-bold relative transform scale-110";
+            elClass += "border-2 border-indigo-500 bg-white dark:bg-gray-700 text-indigo-500 dark:text-indigo-300 font-bold relative transform scale-110";
             content = "今";
         } else if (status === 'dry') {
-            elClass += "bg-green-100 text-green-600 border border-green-200";
+            elClass += "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-800";
             content = "🍵";
             dryCountInWeek++;
         } else if (status === 'drink') {
-            elClass += "bg-red-100 text-red-600 border border-red-200";
+            elClass += "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800";
             content = "🍺";
         } else {
-            elClass += "bg-gray-100 text-gray-300 border border-gray-200";
+            elClass += "bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 border border-gray-200 dark:border-gray-600";
             content = "-";
         }
 
@@ -531,13 +575,14 @@ function renderChart(logs, checks) {
     const ctxCanvas = document.getElementById('balanceChart');
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
-    // 現在のフィルター設定に基づいてボタンのスタイルを更新
+    // フィルターボタンのスタイル更新
     document.querySelectorAll('#chart-filters button').forEach(btn => {
-        if (btn.dataset.range === currentState.chartRange) {
-            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all active-filter bg-white text-indigo-600 shadow-sm";
-        } else {
-            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all text-gray-400 hover:text-gray-600";
-        }
+        const activeClass = "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
+        const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
+        
+        // クラスをリセットしてから適用
+        btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all " + 
+            (btn.dataset.range === currentState.chartRange ? activeClass : inactiveClass);
     });
 
     try {
@@ -619,6 +664,11 @@ function renderChart(logs, checks) {
 
         if (currentState.chart) currentState.chart.destroy();
         
+        // チャートのテキストカラーをテーマに合わせて調整
+        const isDark = document.documentElement.classList.contains('dark');
+        const textColor = isDark ? '#9ca3af' : '#6b7280';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
         currentState.chart = new Chart(ctxCanvas.getContext('2d'), {
             type: 'bar',
             data: { 
@@ -673,23 +723,35 @@ function renderChart(logs, checks) {
                 responsive: true, 
                 maintainAspectRatio: false, 
                 scales: { 
-                    x: { stacked: true, display: false }, 
+                    x: { 
+                        stacked: true, 
+                        display: false 
+                    }, 
                     y: { 
                         stacked: false, 
                         beginAtZero: true,
-                        title: { display: true, text: 'カロリー収支 (分)' }
+                        title: { display: true, text: 'カロリー収支 (分)', color: textColor },
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
                     },
                     y1: {
                         type: 'linear',
                         display: true,
                         position: 'right',
                         grid: { drawOnChartArea: false },
-                        title: { display: true, text: '体重 (kg)' },
+                        title: { display: true, text: '体重 (kg)', color: textColor },
+                        ticks: { color: textColor },
                         suggestMin: 50,
                         suggestMax: 100
                     }
                 }, 
-                plugins: { legend: { display: true, position: 'bottom' } } 
+                plugins: { 
+                    legend: { 
+                        display: true, 
+                        position: 'bottom',
+                        labels: { color: textColor }
+                    } 
+                } 
             }
         });
     } catch(e) { console.error('Chart Error', e); }

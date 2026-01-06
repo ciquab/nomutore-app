@@ -26,6 +26,7 @@ const handleSaveSettings = () => {
     const m1 = document.getElementById('setting-mode-1').value;
     const m2 = document.getElementById('setting-mode-2').value;
     const be = document.getElementById('setting-base-exercise').value;
+    const theme = document.getElementById('theme-input').value;
     
     if (w && h && a && m1 && m2 && be) {
         localStorage.setItem(APP.STORAGE_KEYS.WEIGHT, w);
@@ -35,10 +36,15 @@ const handleSaveSettings = () => {
         localStorage.setItem(APP.STORAGE_KEYS.MODE1, m1);
         localStorage.setItem(APP.STORAGE_KEYS.MODE2, m2);
         localStorage.setItem(APP.STORAGE_KEYS.BASE_EXERCISE, be);
+        localStorage.setItem(APP.STORAGE_KEYS.THEME, theme); // テーマ保存
         
         toggleModal('settings-modal', false);
         UI.updateModeButtons();
         updateBeerSelectOptions(); 
+        
+        // テーマ即時適用
+        UI.applyTheme(theme);
+        
         refreshUI();
         UI.showMessage('設定を保存しました', 'success');
     } else {
@@ -457,8 +463,9 @@ function bindEvents() {
     });
 
     // Beer Modal Tabs
-    document.getElementById('tab-beer-preset').addEventListener('click', () => UI.switchBeerInputTab('preset'));
-    document.getElementById('tab-beer-custom').addEventListener('click', () => UI.switchBeerInputTab('custom'));
+    // オプショナルチェーン (?.) を追加して、要素がない場合のエラーを防止
+    document.getElementById('tab-beer-preset')?.addEventListener('click', () => UI.switchBeerInputTab('preset'));
+    document.getElementById('tab-beer-custom')?.addEventListener('click', () => UI.switchBeerInputTab('custom'));
     
     // Custom Amount Buttons
     document.querySelectorAll('.btn-quick-amount').forEach(btn => {
@@ -532,6 +539,10 @@ function bindEvents() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 最初にテーマを適用（チラつき防止のため、HTMLのscriptでもやっているが、念のため）
+    const savedTheme = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
+    UI.applyTheme(savedTheme);
+
     bindEvents();
     await migrateData();
 

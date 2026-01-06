@@ -9,12 +9,14 @@ export const APP = {
         TIMER_START: 'hazy_payback_timer_start', 
         MODE1: 'hazy_payback_mode_1', 
         MODE2: 'hazy_payback_mode_2',
-        BASE_EXERCISE: 'hazy_payback_base_exercise'
+        BASE_EXERCISE: 'hazy_payback_base_exercise',
+        THEME: 'hazy_payback_theme' // 追加
     },
     DEFAULTS: { 
         WEIGHT: 70, HEIGHT: 170, AGE: 30, GENDER: 'male', 
         MODE1: '大手ラガー', MODE2: 'Hazy IPA',
-        BASE_EXERCISE: 'stepper'
+        BASE_EXERCISE: 'stepper',
+        THEME: 'system' // 追加
     },
     TANK_MAX_CANS: 3.0
 };
