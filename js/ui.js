@@ -62,7 +62,7 @@ export const UI = {
             'check-status', 'streak-count', 'streak-badge', 'weekly-stamps', 'weekly-status-text',
             'chart-filters', 'quick-input-area', 'beer-select-mode-label',
             'tab-history', // 履歴タブコンテナ
-            'heatmap-grid' // 【修正】これを追加しないとrenderHeatmapで失敗します
+            'heatmap-grid' // ヒートマップグリッド
         ];
 
         ids.forEach(id => {
@@ -111,7 +111,7 @@ export const UI = {
         
         wrapper.innerHTML = `
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex justify-between items-center">
-                <span>Continuity (Last 90 Days)</span>
+                <span>Continuity (Last 5 Weeks)</span>
                 <span class="text-[10px] font-normal">草を生やそう🌿</span>
             </h3>
             
@@ -429,8 +429,8 @@ function renderHeatmap(logs, checks) {
     // 今週の土曜日を特定
     const endDay = today.add(6 - dayOfWeek, 'day'); 
     
-    // 12週間分（84マス）戻った日を開始日とする
-    const totalWeeks = 12;
+    // 【修正】5週間分（35マス）に変更して表示領域をコンパクトにする
+    const totalWeeks = 5;
     const totalDays = totalWeeks * 7;
     const startDay = endDay.subtract(totalDays - 1, 'day'); // -1は当日含むため
     
