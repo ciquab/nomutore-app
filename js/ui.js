@@ -61,7 +61,8 @@ export const UI = {
             'liver-rank-card', 'rank-title', 'dry-count', 'rank-progress', 'rank-next-msg',
             'check-status', 'streak-count', 'streak-badge', 'weekly-stamps', 'weekly-status-text',
             'chart-filters', 'quick-input-area', 'beer-select-mode-label',
-            'tab-history' // 履歴タブコンテナ
+            'tab-history', // 履歴タブコンテナ
+            'heatmap-grid' // 【修正】これを追加しないとrenderHeatmapで失敗します
         ];
 
         ids.forEach(id => {
@@ -70,7 +71,7 @@ export const UI = {
         });
         
         UI.injectPresetAbvInput();
-        // 【追加】ヒートマップ用のコンテナを履歴タブに注入
+        // HTML側に既に要素がある場合は何もしない（idsでキャッシュ済みのため）
         UI.injectHeatmapContainer();
 
         DOM.isInitialized = true;
@@ -78,6 +79,7 @@ export const UI = {
 
     injectPresetAbvInput: () => {
         const sizeSelect = DOM.elements['beer-size'];
+        // 既にHTMLにある場合は追加しない
         if (!sizeSelect || document.getElementById('preset-abv-container')) return;
 
         const container = document.createElement('div');
@@ -95,14 +97,12 @@ export const UI = {
         `;
 
         sizeSelect.parentNode.parentNode.insertBefore(container, DOM.elements['beer-count'].parentNode);
-        DOM.elements['preset-abv'] = document.getElementById('preset-abv');
     },
 
-    // 【追加】ヒートマップのコンテナと凡例をDOMに追加
     injectHeatmapContainer: () => {
         const historyTab = DOM.elements['tab-history'];
-        // ログリストの直前に挿入したいが、構造上chart-filtersの上あたりが良い
         const target = document.getElementById('chart-container');
+        // HTML内に既にheatmap-wrapperがある場合は作成しない
         if (!historyTab || !target || document.getElementById('heatmap-wrapper')) return;
 
         const wrapper = document.createElement('div');
@@ -123,7 +123,7 @@ export const UI = {
                 <div class="text-[10px] text-center text-gray-300">木</div>
                 <div class="text-[10px] text-center text-gray-300">金</div>
                 <div class="text-[10px] text-center text-gray-300">土</div>
-                </div>
+            </div>
 
             <div class="flex flex-wrap justify-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
                 <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 mr-1"></span>休肝+運動</div>
@@ -134,8 +134,8 @@ export const UI = {
             </div>
         `;
 
-        // グラフエリアの前に挿入
         target.parentNode.insertBefore(wrapper, target);
+        // 動的に追加した場合はキャッシュに追加
         DOM.elements['heatmap-grid'] = document.getElementById('heatmap-grid');
     },
 
@@ -398,7 +398,7 @@ export async function refreshUI() {
         
         if(document.getElementById('tab-history')?.classList.contains('active')) {
             renderChart(logs, checks);
-            // 【追加】ヒートマップの描画
+            // ヒートマップの描画
             renderHeatmap(logs, checks);
         }
     } catch (err) {
@@ -406,24 +406,18 @@ export async function refreshUI() {
     }
 }
 
-// 【追加】ヒートマップ描画ロジック
 function renderHeatmap(logs, checks) {
+    // initDOMでキャッシュされていないと、ここでundefinedになり処理が止まります
     const grid = DOM.elements['heatmap-grid'];
     if (!grid) return;
 
-    // 前回の描画をクリアするが、ヘッダー(曜日)は残す
-    // gridの最初7つの要素(曜日ヘッダ)以降を削除して再構築
     while (grid.children.length > 7) {
         grid.removeChild(grid.lastChild);
     }
 
     const today = dayjs();
-    // 過去12週間分（約84日）を表示。日曜始まりに調整
-    // 今日の日付から、直近の土曜日まで進め、そこから12週間戻るなどの計算が必要だが
-    // シンプルに「今日を含む週の土曜日」を終点とし、そこから84日前まで遡る形にする
-    
-    const endDay = today.endOf('week'); // 今週の土曜
-    const startDay = endDay.subtract(11, 'week').startOf('week'); // 11週前の日曜
+    const endDay = today.endOf('week'); 
+    const startDay = endDay.subtract(11, 'week').startOf('week'); 
     
     const totalDays = endDay.diff(startDay, 'day') + 1;
     
@@ -432,38 +426,34 @@ function renderHeatmap(logs, checks) {
     for (let i = 0; i < totalDays; i++) {
         const currentDay = startDay.add(i, 'day');
         
-        // Check有無
         const check = checks.find(c => dayjs(c.timestamp).isSame(currentDay, 'day'));
         const isDry = check?.isDryDay;
 
-        // Log分析
         const dayLogs = logs.filter(l => dayjs(l.timestamp).isSame(currentDay, 'day'));
-        const hasDrink = dayLogs.some(l => l.minutes < 0); // 借金レコード
-        const hasExercise = dayLogs.some(l => l.minutes > 0); // 返済レコード
+        const hasDrink = dayLogs.some(l => l.minutes < 0); 
+        const hasExercise = dayLogs.some(l => l.minutes > 0); 
 
-        let bgColor = "bg-gray-100 dark:bg-gray-700"; // default
+        let bgColor = "bg-gray-100 dark:bg-gray-700"; 
         let title = `${currentDay.format('MM/DD')}: No Record`;
 
-        // 優先度順に色を決定
         if (isDry && hasExercise) {
-            bgColor = "bg-emerald-500"; // Perfect
+            bgColor = "bg-emerald-500"; 
             title = `${currentDay.format('MM/DD')}: Perfect! (休肝+運動)`;
         } else if (isDry) {
-            bgColor = "bg-green-400"; // Dry
+            bgColor = "bg-green-400"; 
             title = `${currentDay.format('MM/DD')}: 休肝日`;
         } else if (hasDrink && hasExercise) {
-            bgColor = "bg-blue-400"; // Recover
+            bgColor = "bg-blue-400"; 
             title = `${currentDay.format('MM/DD')}: 飲酒+運動`;
         } else if (hasDrink) {
-            bgColor = "bg-red-400"; // Drink
+            bgColor = "bg-red-400"; 
             title = `${currentDay.format('MM/DD')}: 飲酒`;
         } else if (hasExercise) {
-            bgColor = "bg-cyan-400"; // Exercise Only
+            bgColor = "bg-cyan-400"; 
             title = `${currentDay.format('MM/DD')}: 運動のみ`;
         }
 
         const cell = document.createElement('div');
-        // 日付が未来の場合は不透明度を下げる
         if (currentDay.isAfter(today, 'day')) {
             bgColor = "bg-transparent border border-gray-100 dark:border-gray-700";
             title = "";
@@ -472,12 +462,10 @@ function renderHeatmap(logs, checks) {
         cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] text-white/90 font-bold transition hover:opacity-80 ${bgColor}`;
         cell.title = title;
         
-        // 1日と、今日の日付だけ数字を表示する（ゴチャゴチャ回避）
         if (currentDay.date() === 1 || currentDay.isSame(today, 'day')) {
              cell.textContent = currentDay.date();
         }
 
-        // 今日の枠を強調
         if (currentDay.isSame(today, 'day')) {
             cell.classList.add('ring-1', 'ring-indigo-500', 'ring-offset-1');
         }
