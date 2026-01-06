@@ -61,8 +61,13 @@ export const UI = {
             'liver-rank-card', 'rank-title', 'dry-count', 'rank-progress', 'rank-next-msg',
             'check-status', 'streak-count', 'streak-badge', 'weekly-stamps', 'weekly-status-text',
             'chart-filters', 'quick-input-area', 'beer-select-mode-label',
-            'tab-history', // 履歴タブコンテナ
-            'heatmap-grid' // ヒートマップグリッド
+            'tab-history', 
+            'heatmap-grid', // ヒートマップ
+            // 詳細モーダル用要素
+            'log-detail-modal', 'detail-icon', 'detail-title', 'detail-date', 'detail-minutes', 
+            'detail-beer-info', 'detail-style', 'detail-size', 'detail-brand', 
+            'detail-memo-container', 'detail-rating', 'detail-memo',
+            'btn-detail-edit', 'btn-detail-delete'
         ];
 
         ids.forEach(id => {
@@ -71,7 +76,6 @@ export const UI = {
         });
         
         UI.injectPresetAbvInput();
-        // HTML側に既に要素がある場合は何もしない（idsでキャッシュ済みのため）
         UI.injectHeatmapContainer();
 
         DOM.isInitialized = true;
@@ -79,7 +83,6 @@ export const UI = {
 
     injectPresetAbvInput: () => {
         const sizeSelect = DOM.elements['beer-size'];
-        // 既にHTMLにある場合は追加しない
         if (!sizeSelect || document.getElementById('preset-abv-container')) return;
 
         const container = document.createElement('div');
@@ -97,12 +100,12 @@ export const UI = {
         `;
 
         sizeSelect.parentNode.parentNode.insertBefore(container, DOM.elements['beer-count'].parentNode);
+        DOM.elements['preset-abv'] = document.getElementById('preset-abv');
     },
 
     injectHeatmapContainer: () => {
         const historyTab = DOM.elements['tab-history'];
         const target = document.getElementById('chart-container');
-        // HTML内に既にheatmap-wrapperがある場合は作成しない
         if (!historyTab || !target || document.getElementById('heatmap-wrapper')) return;
 
         const wrapper = document.createElement('div');
@@ -135,7 +138,6 @@ export const UI = {
         `;
 
         target.parentNode.insertBefore(wrapper, target);
-        // 動的に追加した場合はキャッシュに追加
         DOM.elements['heatmap-grid'] = document.getElementById('heatmap-grid');
     },
 
@@ -336,6 +338,51 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
+    },
+
+    // 詳細モーダルを表示する関数 (New)
+    openLogDetail: (log) => {
+        if (!DOM.elements['log-detail-modal']) return;
+
+        const isDebt = log.minutes < 0;
+        
+        // 基本情報のセット
+        DOM.elements['detail-icon'].textContent = isDebt ? '🍺' : '🏃‍♀️';
+        DOM.elements['detail-title'].textContent = log.name;
+        DOM.elements['detail-date'].textContent = dayjs(log.timestamp).format('YYYY/MM/DD HH:mm');
+        
+        const typeText = isDebt ? '借金' : '返済';
+        const signClass = isDebt ? 'text-red-500' : 'text-green-500';
+        DOM.elements['detail-minutes'].innerHTML = `<span class="${signClass}">${typeText} ${Math.abs(log.minutes)}分</span>`;
+
+        // ビール情報の表示切り替え
+        if (isDebt && (log.style || log.size || log.brewery || log.brand)) {
+            DOM.elements['detail-beer-info'].classList.remove('hidden');
+            DOM.elements['detail-style'].textContent = log.style || '-';
+            const sizeLabel = SIZE_DATA[log.size] ? SIZE_DATA[log.size].label : log.size;
+            DOM.elements['detail-size'].textContent = sizeLabel || '-';
+            
+            const brewery = log.brewery ? `[${log.brewery}] ` : '';
+            const brand = log.brand || '';
+            DOM.elements['detail-brand'].textContent = (brewery + brand) || '-';
+        } else {
+            DOM.elements['detail-beer-info'].classList.add('hidden');
+        }
+
+        // メモ/評価の表示切り替え
+        if (log.memo || log.rating > 0) {
+            DOM.elements['detail-memo-container'].classList.remove('hidden');
+            const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
+            DOM.elements['detail-rating'].textContent = log.rating > 0 ? stars : '';
+            DOM.elements['detail-memo'].textContent = log.memo || '';
+        } else {
+            DOM.elements['detail-memo-container'].classList.add('hidden');
+        }
+
+        // 削除/編集ボタンのためにタイムスタンプをdatasetに保存
+        DOM.elements['log-detail-modal'].dataset.timestamp = log.timestamp;
+
+        toggleModal('log-detail-modal', true);
     }
 };
 
@@ -398,7 +445,6 @@ export async function refreshUI() {
         
         if(document.getElementById('tab-history')?.classList.contains('active')) {
             renderChart(logs, checks);
-            // ヒートマップの描画
             renderHeatmap(logs, checks);
         }
     } catch (err) {
@@ -411,35 +457,28 @@ function renderHeatmap(logs, checks) {
     let grid = DOM.elements['heatmap-grid'];
     if (!grid) {
         grid = document.getElementById('heatmap-grid');
-        // それでもなければ中止
         if (!grid) return; 
-        // キャッシュしておく
         DOM.elements['heatmap-grid'] = grid;
     }
 
-    // 2. 既存のマス目をクリア（最初の7個＝曜日ヘッダーは残す）
     while (grid.children.length > 7) {
         grid.removeChild(grid.lastChild);
     }
 
-    // 3. 期間計算（プラグイン依存を避けるため手動計算）
     const today = dayjs();
-    const dayOfWeek = today.day(); // 0(日) 〜 6(土)
-    
-    // 今週の土曜日を特定
+    const dayOfWeek = today.day(); 
     const endDay = today.add(6 - dayOfWeek, 'day'); 
     
-    // 【修正】5週間分（35マス）に変更して表示領域をコンパクトにする
+    // 5週間分（35マス）に変更
     const totalWeeks = 5;
     const totalDays = totalWeeks * 7;
-    const startDay = endDay.subtract(totalDays - 1, 'day'); // -1は当日含むため
+    const startDay = endDay.subtract(totalDays - 1, 'day'); 
     
     const fragment = document.createDocumentFragment();
 
     for (let i = 0; i < totalDays; i++) {
         const currentDay = startDay.add(i, 'day');
         
-        // 記録の照合
         const check = checks.find(c => dayjs(c.timestamp).isSame(currentDay, 'day'));
         const isDry = check?.isDryDay;
 
@@ -447,7 +486,6 @@ function renderHeatmap(logs, checks) {
         const hasDrink = dayLogs.some(l => l.minutes < 0); 
         const hasExercise = dayLogs.some(l => l.minutes > 0); 
 
-        // 色とツールチップの決定
         let bgColor = "bg-gray-100 dark:bg-gray-700"; 
         let title = `${currentDay.format('MM/DD')}: No Record`;
 
@@ -468,29 +506,23 @@ function renderHeatmap(logs, checks) {
             title = `${currentDay.format('MM/DD')}: 運動のみ`;
         }
 
-        // 未来の日付は薄くする
         if (currentDay.isAfter(today, 'day')) {
             bgColor = "bg-transparent border border-gray-100 dark:border-gray-700 opacity-30";
             title = "";
         }
 
-        // マス目生成
         const cell = document.createElement('div');
-        // 色クラスを適用（文字色も見やすいように調整）
         cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold transition hover:opacity-80 ${bgColor} text-white/90`;
         cell.title = title;
         
-        // 「1日」と「今日」だけ日付数字を表示
         if (currentDay.date() === 1 || currentDay.isSame(today, 'day')) {
              cell.textContent = currentDay.date();
-             // 背景が薄い場合（未来や記録なし）は見にくいので文字色を調整
              if (bgColor.includes('bg-gray-100') || bgColor.includes('bg-transparent')) {
                  cell.classList.remove('text-white/90');
                  cell.classList.add('text-gray-400');
              }
         }
 
-        // 今日の枠を強調
         if (currentDay.isSame(today, 'day')) {
             cell.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-1', 'dark:ring-offset-gray-800');
         }
@@ -579,7 +611,7 @@ function renderLogList(logs) {
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        return `<div class="flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors">
+        return `<div class="log-item-row flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors cursor-pointer" data-id="${log.timestamp}">
                     <div class="flex-grow min-w-0 pr-2">
                         <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
                         ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
@@ -612,6 +644,7 @@ function renderBeerTank(logs) {
     const emptyIcon = DOM.elements['tank-empty-icon'];
     const cansText = DOM.elements['tank-cans'];
     const minText = DOM.elements['tank-minutes'];
+    // tank-message配下のpタグを取得（キャッシュ対象外の場合があるので安全に取得）
     const msgText = DOM.elements['tank-message'] ? DOM.elements['tank-message'].querySelector('p') : null;
 
     if (!liquid || !emptyIcon || !cansText || !minText || !msgText) return;
@@ -767,6 +800,7 @@ function renderWeeklyAndHeatUp(logs, checks) {
     const container = DOM.elements['weekly-stamps'];
     if (!container) return;
     
+    // 毎回全クリアせず、フラグメントで構築して一回書き込み
     const fragment = document.createDocumentFragment();
     const today = dayjs();
     let dryCountInWeek = 0;
@@ -814,9 +848,10 @@ function renderWeeklyAndHeatUp(logs, checks) {
 }
 
 function renderChart(logs, checks) {
-    const ctxCanvas = document.getElementById('balanceChart');
+    const ctxCanvas = document.getElementById('balanceChart'); // Canvasは描画時に取得でOK
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
+    // フィルターボタンのスタイル更新
     const filters = DOM.elements['chart-filters'];
     if(filters) {
         filters.querySelectorAll('button').forEach(btn => {

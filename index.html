@@ -60,7 +60,7 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body class="min-h-screen text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 select-none overscroll-none transition-colors duration-300">
 
@@ -85,7 +85,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.6</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.8</span>
                 </div>
             </div>
         </div>
@@ -273,6 +273,52 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="log-detail-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[70] flex items-center justify-center p-4 backdrop-blur-sm modal-bg">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl w-full max-w-sm modal-content transition-colors relative">
+            <button class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold p-2 btn-close-modal">&times;</button>
+            
+            <div class="text-center mb-6">
+                <div id="detail-icon" class="text-5xl mb-2">🍺</div>
+                <h3 id="detail-title" class="text-xl font-black text-gray-800 dark:text-white break-words"></h3>
+                <p id="detail-date" class="text-xs text-gray-400 font-bold mt-1"></p>
+            </div>
+
+            <div class="space-y-4 mb-8">
+                <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">収支</span>
+                    <span id="detail-minutes" class="text-lg font-black"></span>
+                </div>
+                
+                <div id="detail-beer-info" class="hidden space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">STYLE</p>
+                            <p id="detail-style" class="text-sm font-bold text-gray-800 dark:text-white truncate"></p>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">SIZE</p>
+                            <p id="detail-size" class="text-sm font-bold text-gray-800 dark:text-white truncate"></p>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">BREWERY / BRAND</p>
+                        <p id="detail-brand" class="text-sm font-bold text-gray-800 dark:text-white break-words"></p>
+                    </div>
+                </div>
+
+                <div id="detail-memo-container" class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 rounded-xl hidden">
+                    <div id="detail-rating" class="text-yellow-500 text-sm mb-1"></div>
+                    <p id="detail-memo" class="text-sm text-gray-700 dark:text-gray-300 italic"></p>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-detail-edit" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition">編集</button>
+                <button id="btn-detail-delete" class="flex-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold py-3 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/50 transition">削除</button>
             </div>
         </div>
     </div>

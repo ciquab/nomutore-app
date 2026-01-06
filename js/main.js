@@ -293,8 +293,6 @@ async function recordExercise(t, m, dateVal = null) {
 
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
 
-    // 【追加】借金完済判定
-    // 現在の残高を計算（今回の記録前）
     const currentBalance = allLogs.reduce((sum, l) => sum + l.minutes, 0);
 
     await db.logs.add({
@@ -306,7 +304,6 @@ async function recordExercise(t, m, dateVal = null) {
         memo: multiplier > 1.0 ? `🔥 Streak Bonus x${multiplier}` : ''
     }); 
     
-    // 今回の運動で借金がゼロ以上になったか判定
     if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {
         UI.showConfetti();
         UI.showMessage(`借金完済！おめでとう！🎉\n${i.label} ${m}分 記録完了`, 'success');
@@ -519,12 +516,37 @@ function bindEvents() {
     document.getElementById('btn-download-json').addEventListener('click', DataManager.exportJSON);
     document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
 
-    // Event Delegation
-    document.getElementById('log-list').addEventListener('click', (e) => {
-        const btn = e.target.closest('.delete-log-btn');
-        if (btn) {
-            deleteLog(parseInt(btn.dataset.id));
+    // 【修正】イベントデリゲーションの更新 (削除ボタンと行クリックの分離)
+    document.getElementById('log-list').addEventListener('click', async (e) => {
+        // 削除ボタンが押された場合
+        const deleteBtn = e.target.closest('.delete-log-btn');
+        if (deleteBtn) {
+            e.stopPropagation(); // 行クリックイベントを阻止
+            deleteLog(parseInt(deleteBtn.dataset.id));
+            return;
         }
+
+        // 行全体がクリックされた場合 (詳細モーダルを開く)
+        const row = e.target.closest('.log-item-row');
+        if (row) {
+            const timestamp = parseInt(row.dataset.id);
+            const log = await db.logs.get({timestamp: timestamp});
+            if(log) UI.openLogDetail(log);
+        }
+    });
+
+    // 【追加】詳細モーダル内のボタンイベント
+    document.getElementById('btn-detail-delete').addEventListener('click', () => {
+        const modal = document.getElementById('log-detail-modal');
+        if (modal && modal.dataset.timestamp) {
+            const ts = parseInt(modal.dataset.timestamp);
+            deleteLog(ts);
+            toggleModal('log-detail-modal', false);
+        }
+    });
+
+    document.getElementById('btn-detail-edit').addEventListener('click', () => {
+        alert('編集機能は次回実装します！');
     });
 
     document.getElementById('check-status').addEventListener('click', (e) => {
