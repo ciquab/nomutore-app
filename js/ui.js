@@ -407,25 +407,39 @@ export async function refreshUI() {
 }
 
 function renderHeatmap(logs, checks) {
-    // initDOMでキャッシュされていないと、ここでundefinedになり処理が止まります
-    const grid = DOM.elements['heatmap-grid'];
-    if (!grid) return;
+    // 1. キャッシュから取得、なければ直接取得（安全策）
+    let grid = DOM.elements['heatmap-grid'];
+    if (!grid) {
+        grid = document.getElementById('heatmap-grid');
+        // それでもなければ中止
+        if (!grid) return; 
+        // キャッシュしておく
+        DOM.elements['heatmap-grid'] = grid;
+    }
 
+    // 2. 既存のマス目をクリア（最初の7個＝曜日ヘッダーは残す）
     while (grid.children.length > 7) {
         grid.removeChild(grid.lastChild);
     }
 
+    // 3. 期間計算（プラグイン依存を避けるため手動計算）
     const today = dayjs();
-    const endDay = today.endOf('week'); 
-    const startDay = endDay.subtract(11, 'week').startOf('week'); 
+    const dayOfWeek = today.day(); // 0(日) 〜 6(土)
     
-    const totalDays = endDay.diff(startDay, 'day') + 1;
+    // 今週の土曜日を特定
+    const endDay = today.add(6 - dayOfWeek, 'day'); 
+    
+    // 12週間分（84マス）戻った日を開始日とする
+    const totalWeeks = 12;
+    const totalDays = totalWeeks * 7;
+    const startDay = endDay.subtract(totalDays - 1, 'day'); // -1は当日含むため
     
     const fragment = document.createDocumentFragment();
 
     for (let i = 0; i < totalDays; i++) {
         const currentDay = startDay.add(i, 'day');
         
+        // 記録の照合
         const check = checks.find(c => dayjs(c.timestamp).isSame(currentDay, 'day'));
         const isDry = check?.isDryDay;
 
@@ -433,6 +447,7 @@ function renderHeatmap(logs, checks) {
         const hasDrink = dayLogs.some(l => l.minutes < 0); 
         const hasExercise = dayLogs.some(l => l.minutes > 0); 
 
+        // 色とツールチップの決定
         let bgColor = "bg-gray-100 dark:bg-gray-700"; 
         let title = `${currentDay.format('MM/DD')}: No Record`;
 
@@ -453,21 +468,31 @@ function renderHeatmap(logs, checks) {
             title = `${currentDay.format('MM/DD')}: 運動のみ`;
         }
 
-        const cell = document.createElement('div');
+        // 未来の日付は薄くする
         if (currentDay.isAfter(today, 'day')) {
-            bgColor = "bg-transparent border border-gray-100 dark:border-gray-700";
+            bgColor = "bg-transparent border border-gray-100 dark:border-gray-700 opacity-30";
             title = "";
         }
 
-        cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] text-white/90 font-bold transition hover:opacity-80 ${bgColor}`;
+        // マス目生成
+        const cell = document.createElement('div');
+        // 色クラスを適用（文字色も見やすいように調整）
+        cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold transition hover:opacity-80 ${bgColor} text-white/90`;
         cell.title = title;
         
+        // 「1日」と「今日」だけ日付数字を表示
         if (currentDay.date() === 1 || currentDay.isSame(today, 'day')) {
              cell.textContent = currentDay.date();
+             // 背景が薄い場合（未来や記録なし）は見にくいので文字色を調整
+             if (bgColor.includes('bg-gray-100') || bgColor.includes('bg-transparent')) {
+                 cell.classList.remove('text-white/90');
+                 cell.classList.add('text-gray-400');
+             }
         }
 
+        // 今日の枠を強調
         if (currentDay.isSame(today, 'day')) {
-            cell.classList.add('ring-1', 'ring-indigo-500', 'ring-offset-1');
+            cell.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-1', 'dark:ring-offset-gray-800');
         }
 
         fragment.appendChild(cell);
