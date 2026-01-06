@@ -10,7 +10,8 @@ export let currentState = {
     beerMode: 'mode1', 
     chart: null, 
     timerId: null,
-    chartRange: '1w'
+    chartRange: '1w',
+    isEditMode: false // 編集モード状態
 };
 
 // DOM要素のキャッシュ用オブジェクト
@@ -62,12 +63,14 @@ export const UI = {
             'check-status', 'streak-count', 'streak-badge', 'weekly-stamps', 'weekly-status-text',
             'chart-filters', 'quick-input-area', 'beer-select-mode-label',
             'tab-history', 
-            'heatmap-grid', // ヒートマップ
-            // 詳細モーダル用要素
+            'heatmap-grid',
             'log-detail-modal', 'detail-icon', 'detail-title', 'detail-date', 'detail-minutes', 
             'detail-beer-info', 'detail-style', 'detail-size', 'detail-brand', 
             'detail-memo-container', 'detail-rating', 'detail-memo',
-            'btn-detail-edit', 'btn-detail-delete'
+            'btn-detail-edit', 'btn-detail-delete',
+            'beer-submit-btn', 'check-submit-btn',
+            // 【追加】一括削除・編集モード用
+            'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count'
         ];
 
         ids.forEach(id => {
@@ -119,14 +122,7 @@ export const UI = {
             </h3>
             
             <div id="heatmap-grid" class="grid grid-cols-7 gap-1 mb-3">
-                <div class="text-[10px] text-center text-gray-300">日</div>
-                <div class="text-[10px] text-center text-gray-300">月</div>
-                <div class="text-[10px] text-center text-gray-300">火</div>
-                <div class="text-[10px] text-center text-gray-300">水</div>
-                <div class="text-[10px] text-center text-gray-300">木</div>
-                <div class="text-[10px] text-center text-gray-300">金</div>
-                <div class="text-[10px] text-center text-gray-300">土</div>
-            </div>
+                </div>
 
             <div class="flex flex-wrap justify-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
                 <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 mr-1"></span>休肝+運動</div>
@@ -196,27 +192,72 @@ export const UI = {
         if (section) section.classList.toggle('hidden-area', cb.checked);
     },
 
-    openBeerModal: (style = null, size = null) => {
+    openBeerModal: (log = null) => {
         const dateEl = DOM.elements['beer-date'];
-        if (dateEl) dateEl.value = UI.getTodayString();
-        
         const styleSelect = DOM.elements['beer-select'];
         const sizeSelect = DOM.elements['beer-size'];
-
-        if (style && styleSelect) {
-            styleSelect.value = style;
-            styleSelect.dispatchEvent(new Event('change'));
-        } else if (styleSelect) {
-            styleSelect.value = '';
-        }
-
-        if (size && sizeSelect) sizeSelect.value = size;
-        else if (sizeSelect) sizeSelect.value = '350';
+        const countInput = DOM.elements['beer-count'];
+        const abvInput = DOM.elements['preset-abv'];
+        const breweryInput = document.getElementById('beer-brewery');
+        const brandInput = document.getElementById('beer-brand');
+        const ratingInput = document.getElementById('beer-rating');
+        const memoInput = document.getElementById('beer-memo');
+        const submitBtn = document.getElementById('beer-submit-btn') || document.querySelector('#beer-form button[type="submit"]');
         
-        UI.switchBeerInputTab('preset');
-        
+        if (submitBtn) submitBtn.id = 'beer-submit-btn';
+
+        if (dateEl) dateEl.value = UI.getTodayString();
+        if (styleSelect) styleSelect.value = '';
+        if (sizeSelect) sizeSelect.value = '350';
+        if (countInput) countInput.value = '1';
+        if (abvInput) abvInput.value = '5.0';
+        if (breweryInput) breweryInput.value = '';
+        if (brandInput) brandInput.value = '';
+        if (ratingInput) ratingInput.value = '0';
+        if (memoInput) memoInput.value = '';
         if (DOM.elements['custom-abv']) DOM.elements['custom-abv'].value = '';
         if (DOM.elements['custom-amount']) DOM.elements['custom-amount'].value = '';
+
+        if (log) {
+            if (submitBtn) {
+                submitBtn.textContent = '更新する';
+                submitBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                submitBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+            }
+            
+            if (dateEl) dateEl.value = dayjs(log.timestamp).format('YYYY-MM-DD');
+            if (breweryInput) breweryInput.value = log.brewery || '';
+            if (brandInput) brandInput.value = log.brand || '';
+            if (ratingInput) ratingInput.value = log.rating || 0;
+            if (memoInput) memoInput.value = log.memo || '';
+
+            const isCustom = log.style === 'Custom' || log.isCustom; 
+
+            if (isCustom) {
+                UI.switchBeerInputTab('custom');
+                if (DOM.elements['custom-abv']) DOM.elements['custom-abv'].value = log.abv || '';
+                if (DOM.elements['custom-amount']) DOM.elements['custom-amount'].value = log.rawAmount || (parseInt(log.size) || '');
+                
+                const radios = document.getElementsByName('customType');
+                if (log.customType) {
+                    radios.forEach(r => r.checked = (r.value === log.customType));
+                }
+            } else {
+                UI.switchBeerInputTab('preset');
+                if (styleSelect) styleSelect.value = log.style || '';
+                if (sizeSelect) sizeSelect.value = log.size || '350';
+                if (countInput) countInput.value = log.count || 1;
+                if (abvInput) abvInput.value = log.abv || 5.0;
+            }
+
+        } else {
+            if (submitBtn) {
+                submitBtn.textContent = '記録する';
+                submitBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                submitBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+            }
+            UI.switchBeerInputTab('preset');
+        }
 
         toggleModal('beer-modal', true);
     },
@@ -245,11 +286,43 @@ export const UI = {
         }
     },
 
-    openCheckModal: () => { 
+    openCheckModal: (check = null, dateStr = null) => { 
         const dateEl = DOM.elements['check-date'];
-        if (dateEl) dateEl.value = UI.getTodayString();
-        
-        if (DOM.elements['check-weight']) DOM.elements['check-weight'].value = '';
+        const isDryCb = document.getElementById('is-dry-day');
+        const form = document.getElementById('check-form');
+        const submitBtn = document.getElementById('check-submit-btn') || document.querySelector('#check-form button[type="submit"]');
+        if (submitBtn) submitBtn.id = 'check-submit-btn';
+
+        form.reset();
+        UI.toggleDryDay(isDryCb);
+
+        if (check) {
+            if (dateEl) dateEl.value = dayjs(check.timestamp).format('YYYY-MM-DD');
+            if (isDryCb) {
+                isDryCb.checked = check.isDryDay;
+                UI.toggleDryDay(isDryCb);
+            }
+            if (form.elements['waistEase']) form.elements['waistEase'].checked = check.waistEase;
+            if (form.elements['footLightness']) form.elements['footLightness'].checked = check.footLightness;
+            if (form.elements['waterOk']) form.elements['waterOk'].checked = check.waterOk;
+            if (form.elements['fiberOk']) form.elements['fiberOk'].checked = check.fiberOk;
+            if (DOM.elements['check-weight']) DOM.elements['check-weight'].value = check.weight || '';
+
+            if (submitBtn) {
+                submitBtn.textContent = '更新する';
+                submitBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                submitBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+            }
+        } else {
+            if (dateEl) dateEl.value = dateStr || UI.getTodayString();
+            
+            if (submitBtn) {
+                submitBtn.textContent = '完了';
+                submitBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                submitBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+            }
+        }
+
         toggleModal('check-modal', true); 
     },
 
@@ -340,13 +413,11 @@ export const UI = {
         }
     },
 
-    // 詳細モーダルを表示する関数 (New)
     openLogDetail: (log) => {
         if (!DOM.elements['log-detail-modal']) return;
 
         const isDebt = log.minutes < 0;
         
-        // 基本情報のセット
         DOM.elements['detail-icon'].textContent = isDebt ? '🍺' : '🏃‍♀️';
         DOM.elements['detail-title'].textContent = log.name;
         DOM.elements['detail-date'].textContent = dayjs(log.timestamp).format('YYYY/MM/DD HH:mm');
@@ -355,7 +426,6 @@ export const UI = {
         const signClass = isDebt ? 'text-red-500' : 'text-green-500';
         DOM.elements['detail-minutes'].innerHTML = `<span class="${signClass}">${typeText} ${Math.abs(log.minutes)}分</span>`;
 
-        // ビール情報の表示切り替え
         if (isDebt && (log.style || log.size || log.brewery || log.brand)) {
             DOM.elements['detail-beer-info'].classList.remove('hidden');
             DOM.elements['detail-style'].textContent = log.style || '-';
@@ -369,7 +439,6 @@ export const UI = {
             DOM.elements['detail-beer-info'].classList.add('hidden');
         }
 
-        // メモ/評価の表示切り替え
         if (log.memo || log.rating > 0) {
             DOM.elements['detail-memo-container'].classList.remove('hidden');
             const stars = '★'.repeat(log.rating) + '☆'.repeat(5 - log.rating);
@@ -379,10 +448,59 @@ export const UI = {
             DOM.elements['detail-memo-container'].classList.add('hidden');
         }
 
-        // 削除/編集ボタンのためにタイムスタンプをdatasetに保存
-        DOM.elements['log-detail-modal'].dataset.timestamp = log.timestamp;
+        DOM.elements['log-detail-modal'].dataset.id = log.id;
 
         toggleModal('log-detail-modal', true);
+    },
+
+    // 【追加】編集モードの切替
+    toggleEditMode: () => {
+        currentState.isEditMode = !currentState.isEditMode;
+        const isEdit = currentState.isEditMode;
+        
+        // ボタンのテキスト変更
+        const btn = DOM.elements['btn-toggle-edit-mode'];
+        if (btn) {
+            btn.textContent = isEdit ? '完了' : '編集';
+            btn.className = isEdit 
+                ? "text-xs font-bold text-white bg-indigo-500 px-3 py-1.5 rounded-lg transition"
+                : "text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600";
+        }
+
+        // 削除バーの表示切替
+        const bar = DOM.elements['bulk-action-bar'];
+        if (bar) {
+            if (isEdit) bar.classList.remove('hidden');
+            else bar.classList.add('hidden');
+        }
+
+        // リスト内のチェックボックス表示切替
+        const checkboxes = document.querySelectorAll('.edit-checkbox-area');
+        checkboxes.forEach(el => {
+            if (isEdit) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        });
+
+        // 選択状態のリセット
+        if (!isEdit) {
+            const inputs = document.querySelectorAll('.log-checkbox');
+            inputs.forEach(i => i.checked = false);
+            UI.updateBulkCount(0);
+        }
+    },
+
+    // 【追加】選択件数の表示更新
+    updateBulkCount: (count) => {
+        const el = DOM.elements['bulk-selected-count'];
+        if (el) el.textContent = count;
+        
+        const btn = DOM.elements['btn-bulk-delete'];
+        if (btn) {
+            if (count > 0) btn.removeAttribute('disabled');
+            else btn.setAttribute('disabled', 'true');
+            
+            btn.style.opacity = count > 0 ? '1' : '0.5';
+        }
     }
 };
 
@@ -453,7 +571,6 @@ export async function refreshUI() {
 }
 
 function renderHeatmap(logs, checks) {
-    // 1. キャッシュから取得、なければ直接取得（安全策）
     let grid = DOM.elements['heatmap-grid'];
     if (!grid) {
         grid = document.getElementById('heatmap-grid');
@@ -469,7 +586,6 @@ function renderHeatmap(logs, checks) {
     const dayOfWeek = today.day(); 
     const endDay = today.add(6 - dayOfWeek, 'day'); 
     
-    // 5週間分（35マス）に変更
     const totalWeeks = 5;
     const totalDays = totalWeeks * 7;
     const startDay = endDay.subtract(totalDays - 1, 'day'); 
@@ -512,8 +628,9 @@ function renderHeatmap(logs, checks) {
         }
 
         const cell = document.createElement('div');
-        cell.className = `w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold transition hover:opacity-80 ${bgColor} text-white/90`;
+        cell.className = `heatmap-cell w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold transition hover:opacity-80 ${bgColor} text-white/90 cursor-pointer`;
         cell.title = title;
+        cell.dataset.date = currentDay.format('YYYY-MM-DD');
         
         if (currentDay.date() === 1 || currentDay.isSame(today, 'day')) {
              cell.textContent = currentDay.date();
@@ -611,14 +728,21 @@ function renderLogList(logs) {
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        return `<div class="log-item-row flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors cursor-pointer" data-id="${log.timestamp}">
-                    <div class="flex-grow min-w-0 pr-2">
-                        <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
-                        ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
+        // 【修正】チェックボックスの追加 (currentState.isEditMode で表示制御)
+        const checkHidden = currentState.isEditMode ? '' : 'hidden';
+        const checkboxHtml = `<div class="edit-checkbox-area ${checkHidden} mr-3 flex-shrink-0"><input type="checkbox" class="log-checkbox w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600" value="${log.id}"></div>`;
+
+        return `<div class="log-item-row flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors cursor-pointer" data-id="${log.id}">
+                    <div class="flex items-center flex-grow min-w-0 pr-2">
+                        ${checkboxHtml}
+                        <div class="min-w-0">
+                            <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
+                            ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
+                        </div>
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
                         <span class="px-2 py-1 rounded-full text-xs font-bold ${signClass} whitespace-nowrap">${typeText} ${displayMinutes}分</span>
-                        <button data-id="${log.timestamp}" class="delete-log-btn text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 p-1 font-bold px-2">×</button>
+                        <button data-id="${log.id}" class="delete-log-btn text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 p-1 font-bold px-2">×</button>
                     </div>
                 </div>`;
     });
@@ -644,7 +768,6 @@ function renderBeerTank(logs) {
     const emptyIcon = DOM.elements['tank-empty-icon'];
     const cansText = DOM.elements['tank-cans'];
     const minText = DOM.elements['tank-minutes'];
-    // tank-message配下のpタグを取得（キャッシュ対象外の場合があるので安全に取得）
     const msgText = DOM.elements['tank-message'] ? DOM.elements['tank-message'].querySelector('p') : null;
 
     if (!liquid || !emptyIcon || !cansText || !minText || !msgText) return;
@@ -800,7 +923,6 @@ function renderWeeklyAndHeatUp(logs, checks) {
     const container = DOM.elements['weekly-stamps'];
     if (!container) return;
     
-    // 毎回全クリアせず、フラグメントで構築して一回書き込み
     const fragment = document.createDocumentFragment();
     const today = dayjs();
     let dryCountInWeek = 0;
@@ -848,10 +970,9 @@ function renderWeeklyAndHeatUp(logs, checks) {
 }
 
 function renderChart(logs, checks) {
-    const ctxCanvas = document.getElementById('balanceChart'); // Canvasは描画時に取得でOK
+    const ctxCanvas = document.getElementById('balanceChart');
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
-    // フィルターボタンのスタイル更新
     const filters = DOM.elements['chart-filters'];
     if(filters) {
         filters.querySelectorAll('button').forEach(btn => {

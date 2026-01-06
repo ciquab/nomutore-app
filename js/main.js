@@ -43,6 +43,10 @@ const getDateTimestamp = (dateStr) => {
    Event Handling & App Logic
    ========================================================================== */
 
+// 編集モード管理用の変数
+let editingLogId = null;
+let editingCheckId = null;
+
 const handleSaveSettings = () => {
     const w = parseFloat(document.getElementById('weight-input').value);
     const h = parseFloat(document.getElementById('height-input').value);
@@ -92,6 +96,12 @@ const handleBeerSubmit = async (e) => {
     let logStyle = '';
     let logSize = '';
     let totalKcal = 0;
+    
+    let saveCount = 1;
+    let saveAbv = 0;
+    let saveIsCustom = false;
+    let saveCustomType = null;
+    let saveRawAmount = null;
 
     const calculateKcal = (ml, abv, type) => {
         const alcoholG = ml * (abv / 100) * 0.8;
@@ -114,6 +124,12 @@ const handleBeerSubmit = async (e) => {
         logName = `Custom ${abv}% ${ml}ml` + (type==='dry' ? '🔥' : '🍺');
         logStyle = 'Custom';
         logSize = `${ml}ml`;
+        
+        saveCount = 1;
+        saveAbv = abv;
+        saveIsCustom = true;
+        saveCustomType = type;
+        saveRawAmount = ml;
 
     } else {
         const s = document.getElementById('beer-select').value;
@@ -133,11 +149,15 @@ const handleBeerSubmit = async (e) => {
         logName = `${s} (${userAbv}%) x${c}`;
         logStyle = s;
         logSize = z;
+        
+        saveCount = c;
+        saveAbv = userAbv;
+        saveIsCustom = false;
     }
 
     const min = totalKcal / Calc.burnRate(EXERCISE['stepper'].mets);
 
-    await db.logs.add({ 
+    const logData = { 
         name: logName, 
         type: '借金', 
         style: logStyle, 
@@ -147,10 +167,23 @@ const handleBeerSubmit = async (e) => {
         brewery: brewery, 
         brand: brand,
         rating: rating,
-        memo: memo
-    });
+        memo: memo,
+        count: saveCount,
+        abv: saveAbv,
+        isCustom: saveIsCustom,
+        customType: saveCustomType,
+        rawAmount: saveRawAmount
+    };
+
+    if (editingLogId) {
+        await db.logs.update(editingLogId, logData);
+        UI.showMessage('記録を更新しました', 'success');
+        editingLogId = null;
+    } else {
+        await db.logs.add(logData);
+        UI.showMessage('飲酒を記録しました 🍺', 'success'); 
+    }
     
-    UI.showMessage('飲酒を記録しました 🍺', 'success'); 
     toggleModal('beer-modal', false); 
     await refreshUI();
 
@@ -200,7 +233,21 @@ const handleCheckSubmit = async (e) => {
 
     if(w) entry.weight = parseFloat(w);
 
-    await db.checks.add(entry); 
+    if (editingCheckId) {
+        await db.checks.update(editingCheckId, entry);
+        editingCheckId = null;
+    } else {
+        const existing = (await db.checks.toArray()).find(c => Calc.isSameDay(c.timestamp, ts));
+        if (existing) {
+            if(confirm('この日付のデータは既に存在します。上書きしますか？')) {
+                await db.checks.update(existing.id, entry);
+            } else {
+                return;
+            }
+        } else {
+            await db.checks.add(entry);
+        }
+    }
     
     UI.showMessage('チェック完了！','success'); 
     toggleModal('check-modal', false); 
@@ -212,11 +259,30 @@ const handleCheckSubmit = async (e) => {
     await refreshUI(); 
 };
 
-const deleteLog = async (timestamp) => {
+const deleteLog = async (id) => {
     if (!confirm('削除しますか？')) return;
-    await db.logs.where('timestamp').equals(timestamp).delete();
+    await db.logs.delete(id);
     UI.showMessage('削除しました', 'success');
     await refreshUI();
+};
+
+// 【追加】一括削除ロジック
+const bulkDeleteLogs = async (ids) => {
+    if (!ids || ids.length === 0) return;
+    
+    if (!confirm(`${ids.length}件のデータを削除しますか？\nこの操作は取り消せません。`)) return;
+    
+    try {
+        await db.logs.bulkDelete(ids);
+        UI.showMessage(`${ids.length}件削除しました`, 'success');
+        
+        // 編集モードを終了して更新
+        UI.toggleEditMode();
+        await refreshUI();
+    } catch (e) {
+        console.error(e);
+        UI.showMessage('一括削除に失敗しました', 'error');
+    }
 };
 
 const handleShare = async () => {
@@ -487,20 +553,34 @@ function bindEvents() {
         btn.addEventListener('click', (e) => {
             const modal = e.target.closest('.modal-bg') || e.target.closest('.modal-content').parentNode;
             toggleModal(modal.id, false);
+            if (modal.id === 'beer-modal') editingLogId = null;
+            if (modal.id === 'check-modal') editingCheckId = null;
         });
     });
     
     document.querySelectorAll('.modal-bg').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) toggleModal(modal.id, false);
+            if (e.target === modal) {
+                toggleModal(modal.id, false);
+                if (modal.id === 'beer-modal') editingLogId = null;
+                if (modal.id === 'check-modal') editingCheckId = null;
+            }
         });
     });
 
     document.getElementById('start-stepper-btn').addEventListener('click', timerControl.start);
     document.getElementById('stop-stepper-btn').addEventListener('click', timerControl.stop);
     document.getElementById('manual-record-btn').addEventListener('click', UI.openManualInput);
-    document.getElementById('btn-open-beer').addEventListener('click', () => UI.openBeerModal());
-    document.getElementById('btn-open-check').addEventListener('click', UI.openCheckModal);
+    
+    document.getElementById('btn-open-beer').addEventListener('click', () => {
+        editingLogId = null;
+        UI.openBeerModal(null);
+    });
+    document.getElementById('btn-open-check').addEventListener('click', () => {
+        editingCheckId = null;
+        UI.openCheckModal(null);
+    });
+
     document.getElementById('btn-share-sns').addEventListener('click', handleShare);
     
     document.getElementById('beer-form').addEventListener('submit', handleBeerSubmit);
@@ -516,49 +596,110 @@ function bindEvents() {
     document.getElementById('btn-download-json').addEventListener('click', DataManager.exportJSON);
     document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
 
-    // 【修正】イベントデリゲーションの更新 (削除ボタンと行クリックの分離)
     document.getElementById('log-list').addEventListener('click', async (e) => {
-        // 削除ボタンが押された場合
+        // 【修正】編集モード中はクリックで詳細を開かないように制御可能だが
+        // チェックボックスクリック時のバブリングを考慮する
+        if (e.target.classList.contains('log-checkbox')) return; // チェックボックス操作はスルー
+
         const deleteBtn = e.target.closest('.delete-log-btn');
         if (deleteBtn) {
-            e.stopPropagation(); // 行クリックイベントを阻止
+            e.stopPropagation();
             deleteLog(parseInt(deleteBtn.dataset.id));
             return;
         }
 
-        // 行全体がクリックされた場合 (詳細モーダルを開く)
+        // 編集モード中でも詳細確認→個別編集は可能とする
         const row = e.target.closest('.log-item-row');
         if (row) {
-            const timestamp = parseInt(row.dataset.id);
-            const log = await db.logs.get({timestamp: timestamp});
+            const id = parseInt(row.dataset.id);
+            const log = await db.logs.get(id);
             if(log) UI.openLogDetail(log);
         }
     });
 
-    // 【追加】詳細モーダル内のボタンイベント
     document.getElementById('btn-detail-delete').addEventListener('click', () => {
         const modal = document.getElementById('log-detail-modal');
-        if (modal && modal.dataset.timestamp) {
-            const ts = parseInt(modal.dataset.timestamp);
-            deleteLog(ts);
+        if (modal && modal.dataset.id) {
+            const id = parseInt(modal.dataset.id);
+            deleteLog(id);
             toggleModal('log-detail-modal', false);
         }
     });
 
-    document.getElementById('btn-detail-edit').addEventListener('click', () => {
-        alert('編集機能は次回実装します！');
+    document.getElementById('btn-detail-edit').addEventListener('click', async () => {
+        const modal = document.getElementById('log-detail-modal');
+        if (modal && modal.dataset.id) {
+            const id = parseInt(modal.dataset.id);
+            const log = await db.logs.get(id);
+            if (log) {
+                editingLogId = id;
+                toggleModal('log-detail-modal', false);
+                UI.openBeerModal(log);
+            }
+        }
     });
 
-    document.getElementById('check-status').addEventListener('click', (e) => {
+    // 【追加】編集モード切替
+    document.getElementById('btn-toggle-edit-mode')?.addEventListener('click', UI.toggleEditMode);
+
+    // 【追加】一括削除ボタン
+    document.getElementById('btn-bulk-delete')?.addEventListener('click', async () => {
+        const checkboxes = document.querySelectorAll('.log-checkbox:checked');
+        const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        if (ids.length > 0) {
+            await bulkDeleteLogs(ids);
+        }
+    });
+
+    // 【追加】チェックボックス変更検知（カウント更新）
+    document.getElementById('log-list').addEventListener('change', (e) => {
+        if (e.target.classList.contains('log-checkbox')) {
+            const count = document.querySelectorAll('.log-checkbox:checked').length;
+            UI.updateBulkCount(count);
+        }
+    });
+
+    document.getElementById('heatmap-grid')?.addEventListener('click', async (e) => {
+        const cell = e.target.closest('.heatmap-cell');
+        if (cell && cell.dataset.date) {
+            const dateStr = cell.dataset.date;
+            const checks = await db.checks.toArray();
+            const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === dateStr);
+            
+            if (target) {
+                editingCheckId = target.id;
+                UI.openCheckModal(target);
+            } else {
+                editingCheckId = null;
+                UI.openCheckModal(null, dateStr);
+            }
+        }
+    });
+
+    document.getElementById('check-status').addEventListener('click', async (e) => {
         if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
-            UI.openCheckModal();
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            const checks = await db.checks.toArray();
+            const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === todayStr);
+            
+            if (target) editingCheckId = target.id;
+            else editingCheckId = null;
+            
+            UI.openCheckModal(target);
         }
     });
 
     document.getElementById('quick-input-area').addEventListener('click', (e) => {
         const btn = e.target.closest('.quick-beer-btn');
         if (btn) {
-            UI.openBeerModal(btn.dataset.style, btn.dataset.size);
+            editingLogId = null;
+            UI.openBeerModal(null);
+            setTimeout(() => {
+                const styleSelect = document.getElementById('beer-select');
+                const sizeSelect = document.getElementById('beer-size');
+                if(styleSelect) styleSelect.value = btn.dataset.style;
+                if(sizeSelect) sizeSelect.value = btn.dataset.size;
+            }, 50);
         }
     });
 

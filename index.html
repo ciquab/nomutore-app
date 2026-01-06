@@ -85,7 +85,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.8</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.9</span>
                 </div>
             </div>
         </div>
@@ -252,12 +252,22 @@
                     <div class="relative h-64 w-full"><canvas id="balanceChart"></canvas></div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors">
-                    <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-white flex items-center">
-                        <span class="text-xl mr-2">📜</span> 最近の履歴
-                        <span id="history-base-label" class="ml-2 text-xs font-normal text-gray-400"></span>
-                    </h2>
-                    <div id="log-container" class="log-container max-h-80 overflow-y-auto pr-1"><div id="log-list" class="divide-y divide-gray-50 dark:divide-gray-700"></div></div>
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors relative group/history">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-800 dark:text-white flex items-center">
+                            <span class="text-xl mr-2">📜</span> 最近の履歴
+                            <span id="history-base-label" class="ml-2 text-xs font-normal text-gray-400"></span>
+                        </h2>
+                        <button id="btn-toggle-edit-mode" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600">編集</button>
+                    </div>
+                    
+                    <div id="bulk-action-bar" class="hidden absolute bottom-4 left-0 w-full px-6 z-20">
+                         <button id="btn-bulk-delete" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                            <span>🗑️</span> 選択した項目を削除 (<span id="bulk-selected-count">0</span>)
+                         </button>
+                    </div>
+
+                    <div id="log-container" class="log-container max-h-80 overflow-y-auto pr-1 transition-all"><div id="log-list" class="divide-y divide-gray-50 dark:divide-gray-700"></div></div>
                 </div>
                 <div class="p-6 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-center">
                     <p class="text-[10px] text-gray-400 mb-4 font-bold tracking-widest">DATA MANAGEMENT</p>
