@@ -17,7 +17,7 @@
 
     <script>
         tailwind.config = {
-            darkMode: 'class', // ダークモードをクラス制御に設定
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
@@ -85,7 +85,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.5</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.6</span>
                 </div>
             </div>
         </div>
@@ -212,7 +212,33 @@
 
             <div id="tab-history" class="tab-content">
                 <h2 class="text-xl font-black text-gray-800 dark:text-gray-100 mb-4 px-2 flex items-center gap-2">📊 活動の履歴</h2>
-                <div class="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 transition-colors">
+                
+                <div id="heatmap-wrapper" class="mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 transition-colors">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex justify-between items-center">
+                        <span>Continuity (Last 90 Days)</span>
+                        <span class="text-[10px] font-normal">草を生やそう🌿</span>
+                    </h3>
+                    
+                    <div id="heatmap-grid" class="grid grid-cols-7 gap-1 mb-3">
+                        <div class="text-[10px] text-center text-gray-300">日</div>
+                        <div class="text-[10px] text-center text-gray-300">月</div>
+                        <div class="text-[10px] text-center text-gray-300">火</div>
+                        <div class="text-[10px] text-center text-gray-300">水</div>
+                        <div class="text-[10px] text-center text-gray-300">木</div>
+                        <div class="text-[10px] text-center text-gray-300">金</div>
+                        <div class="text-[10px] text-center text-gray-300">土</div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 mr-1"></span>休肝+運動</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-green-400 mr-1"></span>休肝日</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-blue-400 mr-1"></span>飲酒+運動</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-red-400 mr-1"></span>飲酒のみ</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-cyan-400 mr-1"></span>運動のみ</div>
+                    </div>
+                </div>
+
+                <div id="chart-container" class="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 transition-colors">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1">
                             <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Balance & Weight
@@ -225,6 +251,7 @@
                     </div>
                     <div class="relative h-64 w-full"><canvas id="balanceChart"></canvas></div>
                 </div>
+
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors">
                     <h2 class="text-lg font-bold mb-4 text-gray-800 dark:text-white flex items-center">
                         <span class="text-xl mr-2">📜</span> 最近の履歴
@@ -257,11 +284,9 @@
                 <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold p-2 btn-close-modal">&times;</button>
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-300 mb-2 font-bold" id="manual-exercise-name">運動名</p>
-            
             <div class="mb-4">
                 <input type="date" id="manual-date" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-gray-800 dark:text-white font-bold text-center">
             </div>
-
             <div class="flex items-center mb-8">
                 <input type="number" inputmode="decimal" id="manual-minutes" placeholder="30" class="w-full p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-gray-800 dark:text-white text-center font-bold text-3xl">
                 <span class="ml-2 font-bold text-gray-500">分</span>
@@ -295,6 +320,17 @@
                             <span class="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-gray-700 px-2 py-0.5 rounded" id="beer-select-mode-label"></span>
                         </div>
                         <select id="beer-select" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-800 dark:text-white font-bold appearance-none"></select>
+                    </div>
+
+                    <div id="preset-abv-container">
+                        <label class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                            度数 (ABV %) <span class="text-xs font-normal text-gray-500">※変更でカロリー自動補正</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="preset-abv" step="0.1" placeholder="5.0" 
+                                class="shadow-sm appearance-none border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded w-full py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            <span class="absolute right-3 top-3 text-gray-400 font-bold">%</span>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -377,7 +413,7 @@
             </form>
         </div>
     </div>
-
+    
     <div id="check-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm modal-bg">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto modal-content transition-colors">
             <div class="flex justify-between items-center mb-2">
@@ -423,7 +459,7 @@
             </form>
         </div>
     </div>
-
+    
     <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm modal-bg">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto modal-content transition-colors">
             <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
@@ -439,7 +475,6 @@
                         <option value="dark">🌙 ダークモード</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">プロフィール (消費カロリー計算用)</label>
                     <div class="grid grid-cols-2 gap-4 mb-4">
@@ -466,7 +501,6 @@
                         </div>
                     </div>
                 </div>
-                
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">換算モード設定</label>
                     <div class="grid gap-3">
@@ -566,27 +600,6 @@
             </div>
         </div>
     </div>
-
-    <nav class="fixed bottom-0 w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pb-safe z-50 transition-colors">
-        <div class="container mx-auto max-w-xl flex justify-around items-center h-16 px-2">
-            
-            <button id="nav-tab-home" class="nav-item flex flex-col items-center justify-center w-full h-full text-indigo-600 dark:text-indigo-400 active:scale-95 transition">
-                <span class="text-2xl mb-0.5">🏠</span>
-                <span class="text-[10px] font-bold">ホーム</span>
-            </button>
-
-            <button id="nav-tab-record" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 dark:text-gray-500 active:scale-95 transition">
-                <span class="text-2xl mb-0.5">⏱️</span>
-                <span class="text-[10px] font-bold">記録</span>
-            </button>
-
-            <button id="nav-tab-history" class="nav-item flex flex-col items-center justify-center w-full h-full text-gray-400 dark:text-gray-500 active:scale-95 transition">
-                <span class="text-2xl mb-0.5">📊</span>
-                <span class="text-[10px] font-bold">履歴</span>
-            </button>
-            
-        </div>
-    </nav>
 
     <script type="module" src="js/main.js"></script>
 </body>
