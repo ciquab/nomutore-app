@@ -12,7 +12,15 @@ export let currentState = {
 // モーダルの開閉関数
 export const toggleModal = (id, show) => { 
     const el = document.getElementById(id);
-    if (el) el.style.display = show ? 'block' : 'none'; 
+    if (el) {
+        if (show) {
+            el.classList.remove('hidden'); // hiddenを消して表示(flexが効く)
+        } else {
+            el.classList.add('hidden');    // hiddenを付けて非表示
+        }
+        // 念のためインラインスタイルが残っていたら消す
+        el.style.display = ''; 
+    }
 };
 
 // UI操作系オブジェクト
