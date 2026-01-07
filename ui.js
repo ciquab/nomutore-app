@@ -1315,7 +1315,7 @@ function renderChart(logs, checks) {
                         stacked: false, 
                         beginAtZero: true,
                         title: { display: true, text: 'カロリー収支 (分)', color: textColor },
-                        ticks: { color: textColor },\
+                        ticks: { color: textColor },
                         grid: { color: gridColor }
                     },
                     y1: {
@@ -1339,4 +1339,5 @@ function renderChart(logs, checks) {
         StateManager.setChart(newChart);
 
     } catch(e) { console.error('Chart Error', e); }
+
 }
