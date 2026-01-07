@@ -701,7 +701,7 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('check-status').addEventListener('click', async (e) => {
+    document.getElementById('check-status')?.addEventListener('click', async (e) => {
         if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
             const todayStr = dayjs().format('YYYY-MM-DD');
             const checks = await db.checks.toArray();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomutore-v23'; // バージョンを更新
+const CACHE_NAME = 'nomutore-v25'; // バージョンを更新
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -12,7 +12,9 @@ const ASSETS_TO_CACHE = [
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap',
     'https://cdn.tailwindcss.com',
     'https://cdn.jsdelivr.net/npm/chart.js',
-    'https://unpkg.com/dexie@3.2.4/dist/dexie.js'
+    'https://unpkg.com/dexie@3.2.4/dist/dexie.js',
+    'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm',
+    'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm'
 ];
 
 // インストール時にキャッシュする
