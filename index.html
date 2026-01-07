@@ -85,7 +85,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.11</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.12</span>
                 </div>
             </div>
         </div>
@@ -214,10 +214,14 @@
                 <h2 class="text-xl font-black text-gray-800 dark:text-gray-100 mb-4 px-2 flex items-center gap-2">📊 活動の履歴</h2>
                 
                 <div id="heatmap-wrapper" class="mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 transition-colors">
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex justify-between items-center">
-                        <span>Continuity (Last 5 Weeks)</span>
-                        <span class="text-[10px] font-normal">草を生やそう🌿</span>
-                    </h3>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Continuity</h3>
+                        <div class="flex items-center gap-2">
+                            <button id="heatmap-prev" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 active:scale-95 transition">◀</button>
+                            <span id="heatmap-period-label" class="text-[10px] font-bold text-gray-500">Last 5 Weeks</span>
+                            <button id="heatmap-next" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 active:scale-95 transition disabled:opacity-30 disabled:cursor-not-allowed" disabled>▶</button>
+                        </div>
+                    </div>
                     
                     <div id="heatmap-grid" class="grid grid-cols-7 gap-1 mb-3">
                         <div class="text-[10px] text-center text-gray-300">日</div>
@@ -285,6 +289,9 @@
                             <button id="btn-copy-data" class="text-gray-500 text-xs font-bold hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 transition">📋 コピー</button>
                             <button id="btn-download-json" class="text-gray-500 text-xs font-bold hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 transition">📥 DL保存</button>
                             <label class="text-gray-500 text-xs font-bold hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 cursor-pointer transition">⬆️ 復元<input type="file" accept=".json" class="hidden" id="btn-import-json"></label>
+                        </div>
+                        <div class="pt-4 border-t border-gray-100 dark:border-gray-700 mt-2">
+                            <button id="btn-reset-all" class="text-red-500 text-xs font-bold hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-4 py-2 rounded-lg transition w-full border border-red-200 dark:border-red-900/50">💣 全データを削除して初期化</button>
                         </div>
                     </div>
                 </div>
@@ -471,52 +478,6 @@
                     </div>
                 </div>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition transform active:scale-95 mt-4">記録する</button>
-            </form>
-        </div>
-    </div>
-    
-    <div id="check-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm modal-bg">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto modal-content transition-colors">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="text-lg font-bold text-gray-800 dark:text-white">✅ デイリーチェック</h3>
-                <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold p-2 btn-close-modal">&times;</button>
-            </div>
-            <p class="text-xs text-gray-400 mb-6 font-medium">コンディションと対策を振り返り</p>
-            <form id="check-form">
-                <div class="space-y-4 mb-8">
-                    <div class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
-                        <label class="block text-xs font-bold text-gray-400 mb-1 ml-1 uppercase">DATE</label>
-                        <input type="date" id="check-date" class="w-full p-2 bg-transparent border-none outline-none text-gray-700 dark:text-white font-bold">
-                    </div>
-                    
-                    <div class="flex items-center justify-between p-3.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
-                        <span class="text-blue-800 dark:text-blue-300 font-bold text-sm">🍵 今日は休肝日 (飲まない)</span>
-                        <input type="checkbox" id="is-dry-day" class="h-6 w-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300 bg-white dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                    <div id="drinking-section" class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 accordion-content">
-                        <h4 class="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-3">🛡️ 対策 (飲む前・飲酒中)</h4>
-                        <div class="space-y-3">
-                            <label class="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg border border-indigo-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 cursor-pointer"><span class="text-gray-700 dark:text-gray-300 font-bold text-sm">🥗 飲酒前の食物繊維</span><input type="checkbox" name="fiberOk" class="h-5 w-5 text-indigo-600 rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"></label>
-                            <label class="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg border border-indigo-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 cursor-pointer"><span class="text-gray-700 dark:text-gray-300 font-bold text-sm">💧 飲酒中/後の水分補給</span><input type="checkbox" name="waterOk" class="h-5 w-5 text-indigo-600 rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"></label>
-                        </div>
-                    </div>
-                    <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-100 dark:border-green-800">
-                        <h4 class="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider mb-3">🧘 コンディション (日中)</h4>
-                        <div class="space-y-3">
-                            <label class="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg border border-green-100 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 cursor-pointer"><span class="text-gray-700 dark:text-gray-300 font-bold text-sm">👖 ウエストに余裕あり</span><input type="checkbox" name="waistEase" class="h-5 w-5 text-green-600 rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"></label>
-                            <label class="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg border border-green-100 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-500 cursor-pointer"><span class="text-gray-700 dark:text-gray-300 font-bold text-sm">🦶 足が軽い・むくみなし</span><input type="checkbox" name="footLightness" class="h-5 w-5 text-green-600 rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"></label>
-                        </div>
-                    </div>
-                    <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
-                         <label class="block text-xs font-bold text-gray-400 mb-1">📏 体重 (任意)</label>
-                         <div class="flex items-center gap-2">
-                             <input type="number" inputmode="decimal" id="check-weight" step="0.1" placeholder="測った時だけ入力" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-700 dark:text-white">
-                             <span class="text-xs font-bold text-gray-400">kg</span>
-                         </div>
-                         <p class="text-[10px] text-gray-400 mt-1 text-center">※入力しなくてもOKです</p>
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition transform active:scale-95">完了</button>
             </form>
         </div>
     </div>

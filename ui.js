@@ -11,7 +11,8 @@ export let currentState = {
     chart: null, 
     timerId: null,
     chartRange: '1w',
-    isEditMode: false
+    isEditMode: false,
+    heatmapOffset: 0 // 【追加】0:最新, 1:1週間前, ...
 };
 
 // DOM要素のキャッシュ用オブジェクト
@@ -70,7 +71,9 @@ export const UI = {
             'btn-detail-edit', 'btn-detail-delete',
             'beer-submit-btn', 'check-submit-btn',
             'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count',
-            'btn-select-all', 'log-container'
+            'btn-select-all', 'log-container',
+            // 【追加】ヒートマップ移動・全削除用ID
+            'heatmap-prev', 'heatmap-next', 'heatmap-period-label', 'btn-reset-all'
         ];
 
         ids.forEach(id => {
@@ -111,18 +114,31 @@ export const UI = {
         const target = document.getElementById('chart-container');
         if (!historyTab || !target || document.getElementById('heatmap-wrapper')) return;
 
+        // index.html側で既に構造を作成している場合はここはスキップされるが、
+        // 万が一JS側で生成する場合のために残しておく（ただし今回はindex.htmlを修正済みなのでここは予備）
         const wrapper = document.createElement('div');
         wrapper.id = 'heatmap-wrapper';
         wrapper.className = "mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4";
         
         wrapper.innerHTML = `
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex justify-between items-center">
-                <span>Continuity (Last 5 Weeks)</span>
-                <span class="text-[10px] font-normal">草を生やそう🌿</span>
-            </h3>
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Continuity</h3>
+                <div class="flex items-center gap-2">
+                    <button id="heatmap-prev" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 active:scale-95 transition">◀</button>
+                    <span id="heatmap-period-label" class="text-[10px] font-bold text-gray-500">Last 5 Weeks</span>
+                    <button id="heatmap-next" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 active:scale-95 transition" disabled>▶</button>
+                </div>
+            </div>
             
             <div id="heatmap-grid" class="grid grid-cols-7 gap-1 mb-3">
-                </div>
+                <div class="text-[10px] text-center text-gray-300">日</div>
+                <div class="text-[10px] text-center text-gray-300">月</div>
+                <div class="text-[10px] text-center text-gray-300">火</div>
+                <div class="text-[10px] text-center text-gray-300">水</div>
+                <div class="text-[10px] text-center text-gray-300">木</div>
+                <div class="text-[10px] text-center text-gray-300">金</div>
+                <div class="text-[10px] text-center text-gray-300">土</div>
+            </div>
 
             <div class="flex flex-wrap justify-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
                 <div class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500 mr-1"></span>休肝+運動</div>
@@ -453,12 +469,10 @@ export const UI = {
         toggleModal('log-detail-modal', true);
     },
 
-    // 編集モード切替
     toggleEditMode: () => {
         currentState.isEditMode = !currentState.isEditMode;
         const isEdit = currentState.isEditMode;
         
-        // ボタン (直接取得して確実性を高める)
         const btn = document.getElementById('btn-toggle-edit-mode');
         if (btn) {
             btn.textContent = isEdit ? '完了' : '編集';
@@ -467,7 +481,6 @@ export const UI = {
                 : "text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600";
         }
 
-        // 全選択ボタンの表示切替 (直接取得)
         const selectAllBtn = document.getElementById('btn-select-all');
         if (selectAllBtn) {
             if (isEdit) selectAllBtn.classList.remove('hidden');
@@ -477,28 +490,24 @@ export const UI = {
             }
         }
 
-        // 削除バー
         const bar = document.getElementById('bulk-action-bar');
         if (bar) {
             if (isEdit) bar.classList.remove('hidden');
             else bar.classList.add('hidden');
         }
 
-        // チェックボックス
         const checkboxes = document.querySelectorAll('.edit-checkbox-area');
         checkboxes.forEach(el => {
             if (isEdit) el.classList.remove('hidden');
             else el.classList.add('hidden');
         });
 
-        // スペーサー (ボタン被り対策)
         const spacer = document.getElementById('edit-spacer');
         if (spacer) {
             if (isEdit) { spacer.classList.remove('hidden'); spacer.classList.add('block'); }
             else { spacer.classList.add('hidden'); spacer.classList.remove('block'); }
         }
 
-        // 選択リセット
         if (!isEdit) {
             const inputs = document.querySelectorAll('.log-checkbox');
             inputs.forEach(i => i.checked = false);
@@ -506,7 +515,6 @@ export const UI = {
         }
     },
 
-    // 全選択/解除機能
     toggleSelectAll: () => {
         const btn = document.getElementById('btn-select-all');
         const inputs = document.querySelectorAll('.log-checkbox');
@@ -603,6 +611,7 @@ export async function refreshUI() {
     }
 }
 
+// 【修正】ヒートマップ描画 (オフセット対応)
 function renderHeatmap(logs, checks) {
     let grid = DOM.elements['heatmap-grid'];
     if (!grid) {
@@ -617,12 +626,38 @@ function renderHeatmap(logs, checks) {
 
     const today = dayjs();
     const dayOfWeek = today.day(); 
-    const endDay = today.add(6 - dayOfWeek, 'day'); 
+    
+    // 【修正】オフセットに基づき基準日を計算
+    let endDay = today.add(6 - dayOfWeek, 'day'); 
+    if (currentState.heatmapOffset > 0) {
+        endDay = endDay.subtract(currentState.heatmapOffset, 'week');
+    }
     
     const totalWeeks = 5;
     const totalDays = totalWeeks * 7;
     const startDay = endDay.subtract(totalDays - 1, 'day'); 
     
+    // 【追加】期間ラベルの更新
+    const label = document.getElementById('heatmap-period-label');
+    if (label) {
+        if (currentState.heatmapOffset === 0) {
+            label.textContent = "Last 5 Weeks";
+        } else {
+            label.textContent = `${startDay.format('M/D')} - ${endDay.format('M/D')}`;
+        }
+    }
+
+    // 【追加】ボタンの状態更新
+    const nextBtn = document.getElementById('heatmap-next');
+    if (nextBtn) {
+        nextBtn.disabled = (currentState.heatmapOffset <= 0);
+        if (currentState.heatmapOffset <= 0) {
+            nextBtn.classList.add('opacity-30', 'cursor-not-allowed');
+        } else {
+            nextBtn.classList.remove('opacity-30', 'cursor-not-allowed');
+        }
+    }
+
     const fragment = document.createDocumentFragment();
 
     for (let i = 0; i < totalDays; i++) {
@@ -781,7 +816,7 @@ function renderLogList(logs) {
 
     list.innerHTML = htmlItems.join('');
     
-    // 【追加】ボタン被り防止用のスペーサー (HTML末尾に追加)
+    // ボタン被り防止用スペーサー
     const spacer = document.createElement('div');
     spacer.id = 'edit-spacer';
     spacer.className = `${currentState.isEditMode ? 'block' : 'hidden'} h-24 w-full flex-shrink-0`;

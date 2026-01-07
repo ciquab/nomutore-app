@@ -276,7 +276,6 @@ const bulkDeleteLogs = async (ids) => {
         await db.logs.bulkDelete(ids);
         UI.showMessage(`${ids.length}件削除しました`, 'success');
         
-        // 編集モードを終了して更新
         UI.toggleEditMode();
         await refreshUI();
     } catch (e) {
@@ -597,7 +596,6 @@ function bindEvents() {
     document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
 
     document.getElementById('log-list').addEventListener('click', async (e) => {
-        // チェックボックスクリック時のバブリングを考慮
         if (e.target.classList.contains('log-checkbox')) return; 
 
         const deleteBtn = e.target.closest('.delete-log-btn');
@@ -637,13 +635,9 @@ function bindEvents() {
         }
     });
 
-    // 編集モード切替
     document.getElementById('btn-toggle-edit-mode')?.addEventListener('click', UI.toggleEditMode);
-
-    // 全選択ボタン
     document.getElementById('btn-select-all')?.addEventListener('click', UI.toggleSelectAll);
 
-    // 一括削除ボタン
     document.getElementById('btn-bulk-delete')?.addEventListener('click', async () => {
         const checkboxes = document.querySelectorAll('.log-checkbox:checked');
         const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -652,11 +646,41 @@ function bindEvents() {
         }
     });
 
-    // チェックボックス変更検知（カウント更新）
     document.getElementById('log-list').addEventListener('change', (e) => {
         if (e.target.classList.contains('log-checkbox')) {
             const count = document.querySelectorAll('.log-checkbox:checked').length;
             UI.updateBulkCount(count);
+        }
+    });
+
+    // 【追加】ヒートマップ期間移動イベント
+    document.getElementById('heatmap-prev')?.addEventListener('click', () => {
+        currentState.heatmapOffset++;
+        refreshUI();
+    });
+
+    document.getElementById('heatmap-next')?.addEventListener('click', () => {
+        if (currentState.heatmapOffset > 0) {
+            currentState.heatmapOffset--;
+            refreshUI();
+        }
+    });
+
+    // 【追加】全データ削除イベント
+    document.getElementById('btn-reset-all')?.addEventListener('click', async () => {
+        if(confirm('本当に全てのデータを削除して初期化しますか？\nこの操作は取り消せません。')) {
+            if(confirm('これまでの記録が全て消えます。よろしいですか？')) {
+                try {
+                    await db.logs.clear();
+                    await db.checks.clear();
+                    Object.values(APP.STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+                    alert('初期化しました。アプリを再読み込みします。');
+                    location.reload();
+                } catch(e) {
+                    console.error(e);
+                    UI.showMessage('削除に失敗しました', 'error');
+                }
+            }
         }
     });
 
