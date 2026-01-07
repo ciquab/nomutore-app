@@ -12,7 +12,7 @@ export let currentState = {
     timerId: null,
     chartRange: '1w',
     isEditMode: false,
-    heatmapOffset: 0 // 【追加】0:最新, 1:1週間前, ...
+    heatmapOffset: 0, // 【追加】0:最新, 1:1週間前, ...
     logLimit: 50 // 【追加】初期表示は50件
 };
 
