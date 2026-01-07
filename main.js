@@ -58,7 +58,13 @@ const handleSaveSettings = () => {
     const theme = document.getElementById('theme-input').value;
     const de = document.getElementById('setting-default-record-exercise').value;
     
-    if (w && h && a && m1 && m2 && be) {
+    // 【修正】基本的な入力チェックに加え、数値の範囲チェックを追加
+    if (w > 0 && h > 0 && a > 0 && m1 && m2 && be) {
+        // 常識的な範囲チェック (必須ではないが安全のため)
+        if (w > 300 || h > 300 || a > 150) {
+            return UI.showMessage('入力値を確認してください', 'error');
+        }
+
         localStorage.setItem(APP.STORAGE_KEYS.WEIGHT, w);
         localStorage.setItem(APP.STORAGE_KEYS.HEIGHT, h);
         localStorage.setItem(APP.STORAGE_KEYS.AGE, a);
@@ -80,7 +86,7 @@ const handleSaveSettings = () => {
         refreshUI();
         UI.showMessage('設定を保存しました', 'success');
     } else {
-        UI.showMessage('すべての項目を入力してください', 'error');
+        UI.showMessage('すべての項目を正しく入力してください', 'error');
     }
 };
 
@@ -121,7 +127,10 @@ const handleBeerSubmit = async (e) => {
         const ml = parseFloat(document.getElementById('custom-amount').value);
         const type = document.querySelector('input[name="customType"]:checked').value;
 
-        if (!abv || !ml) return UI.showMessage('度数と量を入力してください', 'error');
+        // 【修正】マイナス値や0をブロック
+        if (isNaN(abv) || isNaN(ml) || abv < 0 || ml <= 0) {
+            return UI.showMessage('正しい数値を入力してください', 'error');
+        }
 
         totalKcal = calculateKcal(ml, abv, type);
         
@@ -141,10 +150,12 @@ const handleBeerSubmit = async (e) => {
         const c = parseFloat(document.getElementById('beer-count').value);
         const userAbv = parseFloat(document.getElementById('preset-abv').value);
 
-        if (!s || !z || !c || isNaN(userAbv)) return UI.showMessage('入力を確認してください', 'error');
+        // 【修正】マイナス値や0をブロック
+        if (!s || !z || !c || c <= 0 || isNaN(userAbv) || userAbv < 0) {
+            return UI.showMessage('正しい数値を入力してください', 'error');
+        }
 
         const sizeMl = parseFloat(z);
-        
         const spec = STYLE_SPECS[s] || { type: 'sweet' };
         
         const unitKcal = calculateKcal(sizeMl, userAbv, spec.type);
@@ -191,12 +202,16 @@ const handleBeerSubmit = async (e) => {
     toggleModal('beer-modal', false); 
     await refreshUI();
 
+    // 入力リセット
     document.getElementById('beer-brewery').value = '';
     document.getElementById('beer-brand').value = '';
     document.getElementById('beer-rating').value = '0';
     document.getElementById('beer-memo').value = '';
     document.getElementById('untappd-check').checked = false;
     document.getElementById('beer-count').value = '';
+    // カスタム入力欄もリセットしておくと親切
+    if(document.getElementById('custom-abv')) document.getElementById('custom-abv').value = '';
+    if(document.getElementById('custom-amount')) document.getElementById('custom-amount').value = '';
 
     if (useUntappd) {
         let searchTerm = brand;
@@ -209,7 +224,9 @@ const handleBeerSubmit = async (e) => {
 const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
-    if(!m) return UI.showMessage('時間を入力','error'); 
+    
+    // 【修正】マイナス値や0をブロック
+    if (!m || m <= 0) return UI.showMessage('正しい時間を入力してください', 'error'); 
     
     await recordExercise(document.getElementById('exercise-select').value, m, dateVal); 
     
@@ -235,7 +252,15 @@ const handleCheckSubmit = async (e) => {
         timestamp: ts
     };
 
-    if(w) entry.weight = parseFloat(w);
+    // 【修正】体重が入力されており、かつ正の数の場合のみ保存
+    if(w) {
+        const val = parseFloat(w);
+        if (val > 0) {
+            entry.weight = val;
+        } else {
+             return UI.showMessage('体重は正の数で入力してください', 'error');
+        }
+    }
 
     if (editingCheckId) {
         await db.checks.update(editingCheckId, entry);
