@@ -527,72 +527,100 @@
         </div>
     </div>    
     <div id="settings-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm modal-bg">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto modal-content transition-colors">
-            <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
-                <h3 class="text-lg font-bold text-gray-800 dark:text-white">⚙️ 設定</h3>
+        <div class="bg-white dark:bg-gray-800 p-0 rounded-3xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col modal-content transition-colors overflow-hidden">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <h3 class="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2">
+                    <span class="text-xl">⚙️</span> 設定
+                </h3>
                 <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold p-2 btn-close-modal">&times;</button>
             </div>
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">外観 (テーマ)</label>
-                    <select id="theme-input" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
-                        <option value="system">📱 端末の設定に合わせる</option>
-                        <option value="light">☀️ ライトモード</option>
-                        <option value="dark">🌙 ダークモード</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">プロフィール (消費カロリー計算用)</label>
+
+            <div class="p-6 overflow-y-auto custom-scrollbar space-y-8">
+                
+                <section>
+                    <h4 class="text-xs font-bold text-indigo-500 dark:text-indigo-400 mb-3 uppercase tracking-widest border-b border-indigo-100 dark:border-gray-700 pb-1">
+                        1. 身体データ (カロリー計算用)
+                    </h4>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">身長 (cm)</label>
-                            <input type="number" inputmode="decimal" id="height-input" min="100" max="250" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold">身長 (cm)</label>
+                            <input type="number" inputmode="decimal" id="height-input" min="100" max="250" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white text-lg">
                         </div>
                         <div>
-                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">体重 (kg)</label>
-                            <input type="number" inputmode="decimal" id="weight-input" min="20" max="200" step="0.1" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold">体重 (kg)</label>
+                            <input type="number" inputmode="decimal" id="weight-input" min="20" max="200" step="0.1" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white text-lg">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">年齢 (歳)</label>
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold">年齢 (歳)</label>
                             <input type="number" inputmode="decimal" id="age-input" min="10" max="100" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
                         </div>
                         <div>
-                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">性別</label>
+                            <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold">性別</label>
                             <select id="gender-input" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
                                 <option value="male">男性</option>
                                 <option value="female">女性</option>
                             </select>
                         </div>
                     </div>
-                </div>
-<div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">記録設定</label>
-                    <div class="bg-white dark:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
+                </section>
+
+                <section>
+                    <h4 class="text-xs font-bold text-orange-500 dark:text-orange-400 mb-3 uppercase tracking-widest border-b border-orange-100 dark:border-gray-700 pb-1">
+                        2. 借金返済のルール
+                    </h4>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            メインの返済方法 (通貨)
+                            <span class="block text-[10px] text-gray-400 font-normal mt-0.5">※この運動を基準に借金(時間)が表示されます</span>
+                        </label>
+                        <div class="bg-orange-50 dark:bg-orange-900/20 p-2 rounded-xl border border-orange-200 dark:border-orange-800">
+                            <select id="setting-base-exercise" class="w-full p-3 bg-white dark:bg-gray-800 border border-orange-200 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-orange-500"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">左ボタン (標準)</label>
+                            <div class="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                                <select id="setting-mode-1" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md text-xs font-bold text-gray-800 dark:text-white"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">右ボタン (比較)</label>
+                            <div class="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                                <select id="setting-mode-2" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md text-xs font-bold text-gray-800 dark:text-white"></select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
                         <label class="block text-[10px] text-gray-500 dark:text-gray-400 mb-1 font-bold">運動記録のデフォルト</label>
                         <select id="setting-default-record-exercise" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"></select>
                     </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">換算モード設定</label>
-                    <div class="grid gap-3">
-                        <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                            <label class="block text-[10px] font-bold text-indigo-600 dark:text-indigo-300 mb-1">時間換算の基準 (SAVINGS等)</label>
-                            <select id="setting-base-exercise" class="w-full p-2 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-gray-600 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none focus:ring-2 focus:ring-indigo-500"></select>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <label class="block text-[10px] font-bold text-indigo-500 dark:text-indigo-400 mb-1">左ボタン (標準)</label>
-                            <select id="setting-mode-1" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-800 dark:text-white"></select>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-700 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">右ボタン (比較)</label>
-                            <select id="setting-mode-2" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-800 dark:text-white"></select>
-                        </div>
+                </section>
+
+                <section>
+                    <h4 class="text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest border-b border-gray-100 dark:border-gray-700 pb-1">
+                        3. その他
+                    </h4>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">外観 (テーマ)</label>
+                        <select id="theme-input" class="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-bold text-gray-800 dark:text-white">
+                            <option value="system">📱 端末の設定に合わせる</option>
+                            <option value="light">☀️ ライトモード</option>
+                            <option value="dark">🌙 ダークモード</option>
+                        </select>
                     </div>
-                </div>
+                </section>
+
             </div>
-            <button id="btn-save-settings" class="w-full bg-gray-800 hover:bg-gray-900 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 mt-6">保存する</button>
+
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <button id="btn-save-settings" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition transform active:scale-95 text-sm">設定を保存してはじめる</button>
+            </div>
         </div>
     </div>
     

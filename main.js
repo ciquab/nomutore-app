@@ -845,7 +845,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateBeerSelectOptions(); 
     
     const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
-    if(st) { timerControl.start(); UI.switchTab('tab-record'); } else { UI.switchTab('tab-home'); }
+    if(st) { 
+        timerControl.start(); 
+        UI.switchTab('tab-record'); 
+    } else { 
+        UI.switchTab('tab-home'); 
+        
+        // 【追加】初回ユーザー判定 & 設定画面オートオープン
+        // localStorageに身長・体重のキーがまだない場合、初回とみなす
+        if (!localStorage.getItem(APP.STORAGE_KEYS.WEIGHT)) {
+            // 少し遅らせて表示（画面描画が落ち着いてから）
+            setTimeout(() => {
+                UI.openSettings();
+                UI.showMessage('👋 ようこそ！まずはプロフィールと\n基準にする運動を設定しましょう！', 'success');
+            }, 800);
+        }
+    }
 
     await refreshUI();
 });

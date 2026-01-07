@@ -916,8 +916,7 @@ function renderLogList(logs) {
 }
 
 function renderBeerTank(currentBalance) {
-    // const totalBalance = logs.reduce((sum, log) => sum + log.minutes, 0); // ←この行を削除
-    const totalBalance = currentBalance; // 引数をそのまま使う
+    const totalBalance = currentBalance; 
 
     const modes = Store.getModes();
     const targetStyle = currentState.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
@@ -941,6 +940,7 @@ function renderBeerTank(currentBalance) {
 
     requestAnimationFrame(() => {
         if (totalBalance > 0) {
+            // 貯金がある時（変更なし）
             emptyIcon.style.opacity = '0';
             let h = (canCount / APP.TANK_MAX_CANS) * 100;
             liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
@@ -953,6 +953,7 @@ function renderBeerTank(currentBalance) {
             else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
             else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
         } else {
+            // 借金がある時（ここを改善）
             liquid.style.height = '0%';
             emptyIcon.style.opacity = '1';
             cansText.textContent = "0.0";
@@ -960,9 +961,20 @@ function renderBeerTank(currentBalance) {
             minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
             minText.className = 'text-sm font-bold text-red-500';
             
-            const debtCans = (Math.abs(totalKcal) / unitKcal).toFixed(1);
-            msgText.textContent = `枯渇中... あと${debtCans}本分動こう😱`;
-            msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
+            const debtCansVal = Math.abs(canCount); // 借金の本数（正の数）
+
+            // 借金が「1.5本」を超えたら、全額ではなく「スモールゴール」を提示
+            if (debtCansVal > 1.5) {
+                // 1杯分を返すのに必要な分数を計算
+                const oneCanMin = Math.round(unitKcal / displayRate);
+                
+                msgText.textContent = `借金山積み...😱 まずは1杯分 (${oneCanMin}分) だけ返そう！`;
+                msgText.className = 'text-sm font-bold text-orange-500 animate-pulse';
+            } else {
+                // 借金が少ない時は、これまで通り全額提示
+                msgText.textContent = `枯渇中... あと${debtCansVal.toFixed(1)}本分動こう😱`;
+                msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
+            }
         }
     });
 }

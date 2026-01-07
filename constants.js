@@ -16,9 +16,9 @@ export const APP = {
     DEFAULTS: { 
         WEIGHT: 60, HEIGHT: 160, AGE: 30, GENDER: 'female', 
         MODE1: '大手ラガー', MODE2: 'Hazy IPA',
-        BASE_EXERCISE: 'stepper',
+        BASE_EXERCISE: 'walking',
         THEME: 'system',
-        DEFAULT_RECORD_EXERCISE: 'stepper' // 追加
+        DEFAULT_RECORD_EXERCISE: 'walking' // 追加
     },
     TANK_MAX_CANS: 3.0
 };
