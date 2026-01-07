@@ -70,7 +70,7 @@ export const UI = {
             'btn-detail-edit', 'btn-detail-delete',
             'beer-submit-btn', 'check-submit-btn',
             'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count',
-            'btn-select-all', 'log-container' // log-containerを追加
+            'btn-select-all', 'log-container'
         ];
 
         ids.forEach(id => {
@@ -458,7 +458,8 @@ export const UI = {
         currentState.isEditMode = !currentState.isEditMode;
         const isEdit = currentState.isEditMode;
         
-        const btn = DOM.elements['btn-toggle-edit-mode'];
+        // ボタン (直接取得して確実性を高める)
+        const btn = document.getElementById('btn-toggle-edit-mode');
         if (btn) {
             btn.textContent = isEdit ? '完了' : '編集';
             btn.className = isEdit 
@@ -466,36 +467,38 @@ export const UI = {
                 : "text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600";
         }
 
-        // 全選択ボタンの表示切替
-        const selectAllBtn = DOM.elements['btn-select-all'];
+        // 全選択ボタンの表示切替 (直接取得)
+        const selectAllBtn = document.getElementById('btn-select-all');
         if (selectAllBtn) {
             if (isEdit) selectAllBtn.classList.remove('hidden');
             else {
                 selectAllBtn.classList.add('hidden');
-                selectAllBtn.textContent = '全選択'; // モード終了時にリセット
+                selectAllBtn.textContent = '全選択'; 
             }
         }
 
-        // コンテナのpadding調整 (ボタン被り対策)
-        const container = DOM.elements['log-container'];
-        if (container) {
-            if (isEdit) container.classList.add('pb-24');
-            else container.classList.remove('pb-24');
-        }
-
-        const bar = DOM.elements['bulk-action-bar'];
+        // 削除バー
+        const bar = document.getElementById('bulk-action-bar');
         if (bar) {
             if (isEdit) bar.classList.remove('hidden');
             else bar.classList.add('hidden');
         }
 
+        // チェックボックス
         const checkboxes = document.querySelectorAll('.edit-checkbox-area');
         checkboxes.forEach(el => {
             if (isEdit) el.classList.remove('hidden');
             else el.classList.add('hidden');
         });
 
-        // 選択状態のリセット
+        // スペーサー (ボタン被り対策)
+        const spacer = document.getElementById('edit-spacer');
+        if (spacer) {
+            if (isEdit) { spacer.classList.remove('hidden'); spacer.classList.add('block'); }
+            else { spacer.classList.add('hidden'); spacer.classList.remove('block'); }
+        }
+
+        // 選択リセット
         if (!isEdit) {
             const inputs = document.querySelectorAll('.log-checkbox');
             inputs.forEach(i => i.checked = false);
@@ -503,19 +506,17 @@ export const UI = {
         }
     },
 
-    // 【追加】全選択/解除機能
+    // 全選択/解除機能
     toggleSelectAll: () => {
-        const btn = DOM.elements['btn-select-all'];
+        const btn = document.getElementById('btn-select-all');
         const inputs = document.querySelectorAll('.log-checkbox');
         const isAllSelected = btn.textContent === '全解除';
 
         if (isAllSelected) {
-            // 全解除
             inputs.forEach(i => i.checked = false);
             btn.textContent = '全選択';
             UI.updateBulkCount(0);
         } else {
-            // 全選択
             inputs.forEach(i => i.checked = true);
             btn.textContent = '全解除';
             UI.updateBulkCount(inputs.length);
@@ -523,10 +524,10 @@ export const UI = {
     },
 
     updateBulkCount: (count) => {
-        const el = DOM.elements['bulk-selected-count'];
+        const el = document.getElementById('bulk-selected-count');
         if (el) el.textContent = count;
         
-        const btn = DOM.elements['btn-bulk-delete'];
+        const btn = document.getElementById('btn-bulk-delete');
         if (btn) {
             if (count > 0) btn.removeAttribute('disabled');
             else btn.setAttribute('disabled', 'true');
@@ -779,6 +780,12 @@ function renderLogList(logs) {
     });
 
     list.innerHTML = htmlItems.join('');
+    
+    // 【追加】ボタン被り防止用のスペーサー (HTML末尾に追加)
+    const spacer = document.createElement('div');
+    spacer.id = 'edit-spacer';
+    spacer.className = `${currentState.isEditMode ? 'block' : 'hidden'} h-24 w-full flex-shrink-0`;
+    list.appendChild(spacer);
 }
 
 function renderBeerTank(logs) {
