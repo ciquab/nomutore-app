@@ -56,6 +56,7 @@ const handleSaveSettings = () => {
     const m2 = document.getElementById('setting-mode-2').value;
     const be = document.getElementById('setting-base-exercise').value;
     const theme = document.getElementById('theme-input').value;
+    const de = document.getElementById('setting-default-record-exercise').value;
     
     if (w && h && a && m1 && m2 && be) {
         localStorage.setItem(APP.STORAGE_KEYS.WEIGHT, w);
@@ -66,10 +67,13 @@ const handleSaveSettings = () => {
         localStorage.setItem(APP.STORAGE_KEYS.MODE2, m2);
         localStorage.setItem(APP.STORAGE_KEYS.BASE_EXERCISE, be);
         localStorage.setItem(APP.STORAGE_KEYS.THEME, theme);
+        localStorage.setItem(APP.STORAGE_KEYS.DEFAULT_RECORD_EXERCISE, de);
         
         toggleModal('settings-modal', false);
         UI.updateModeButtons();
         updateBeerSelectOptions(); 
+        const recordSelect = document.getElementById('exercise-select');
+        if (recordSelect) recordSelect.value = de;
         
         UI.applyTheme(theme);
         
@@ -760,12 +764,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             const o = document.createElement('option'); 
             o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; exSelect.appendChild(o); 
         });
+        exSelect.value = Store.getDefaultRecordExercise();
     }
     
     const settingExSelect = document.getElementById('setting-base-exercise');
     if (settingExSelect) {
         settingExSelect.innerHTML = '';
         Object.keys(EXERCISE).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; settingExSelect.appendChild(o); });
+    }
+    const settingDefExSelect = document.getElementById('setting-default-record-exercise');
+    if (settingDefExSelect) {
+        settingDefExSelect.innerHTML = '';
+        Object.keys(EXERCISE).forEach(k => {
+            const o = document.createElement('option');
+            o.value = k;
+            o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`;
+            settingDefExSelect.appendChild(o);
+        });
     }
 
     const zs = document.getElementById('beer-size'); 

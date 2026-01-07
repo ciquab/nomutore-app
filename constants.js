@@ -10,13 +10,15 @@ export const APP = {
         MODE1: 'hazy_payback_mode_1', 
         MODE2: 'hazy_payback_mode_2',
         BASE_EXERCISE: 'hazy_payback_base_exercise',
-        THEME: 'hazy_payback_theme' // 追加
+        THEME: 'hazy_payback_theme',
+        DEFAULT_RECORD_EXERCISE: 'hazy_payback_default_record_exercise' // 追加
     },
     DEFAULTS: { 
-        WEIGHT: 70, HEIGHT: 170, AGE: 30, GENDER: 'male', 
+        WEIGHT: 60, HEIGHT: 160, AGE: 30, GENDER: 'female', 
         MODE1: '大手ラガー', MODE2: 'Hazy IPA',
         BASE_EXERCISE: 'stepper',
-        THEME: 'system' // 追加
+        THEME: 'system',
+        DEFAULT_RECORD_EXERCISE: 'stepper' // 追加
     },
     TANK_MAX_CANS: 3.0
 };

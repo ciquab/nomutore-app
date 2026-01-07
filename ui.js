@@ -56,7 +56,7 @@ export const UI = {
             'check-date', 'check-weight', 
             'manual-exercise-name', 'manual-date', 
             'weight-input', 'height-input', 'age-input', 'gender-input',
-            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input',
+            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input','setting-default-record-exercise',
             'btn-mode-1', 'btn-mode-2', 
             'tank-liquid', 'tank-empty-icon', 'tank-cans', 'tank-minutes', 'tank-message',
             'log-list', 'history-base-label',
@@ -369,7 +369,8 @@ export const UI = {
         setVal('setting-mode-2', modes.mode2);
         setVal('setting-base-exercise', Store.getBaseExercise());
         setVal('theme-input', Store.getTheme());
-        
+        setVal('setting-default-record-exercise', Store.getDefaultRecordExercise());        
+
         toggleModal('settings-modal', true);
     },
 
@@ -637,7 +638,7 @@ function renderHeatmap(logs, checks) {
     const totalDays = totalWeeks * 7;
     const startDay = endDay.subtract(totalDays - 1, 'day'); 
     
-    // 【追加】期間ラベルの更新
+    // ★修正: getElementById で直接取得し、存在確認をする
     const label = document.getElementById('heatmap-period-label');
     if (label) {
         if (currentState.heatmapOffset === 0) {
