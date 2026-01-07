@@ -516,12 +516,13 @@ async function migrateData() {
 // -----------------------------------------------------
 
 function bindEvents() {
+    // オプショナルチェーン (?.) を追加して、要素が存在しない場合のエラーを防止
     document.getElementById('btn-open-help')?.addEventListener('click', UI.openHelp);
     document.getElementById('btn-open-settings')?.addEventListener('click', UI.openSettings);
     
-    document.getElementById('nav-tab-home').addEventListener('click', () => UI.switchTab('tab-home'));
-    document.getElementById('nav-tab-record').addEventListener('click', () => UI.switchTab('tab-record'));
-    document.getElementById('nav-tab-history').addEventListener('click', () => UI.switchTab('tab-history'));
+    document.getElementById('nav-tab-home')?.addEventListener('click', () => UI.switchTab('tab-home'));
+    document.getElementById('nav-tab-record')?.addEventListener('click', () => UI.switchTab('tab-record'));
+    document.getElementById('nav-tab-history')?.addEventListener('click', () => UI.switchTab('tab-history'));
 
     const swipeArea = document.getElementById('swipe-area');
     if (swipeArea) {
@@ -529,10 +530,10 @@ function bindEvents() {
         swipeArea.addEventListener('touchend', handleTouchEnd);
     }
 
-    document.getElementById('btn-mode-1').addEventListener('click', () => UI.setBeerMode('mode1'));
-    document.getElementById('btn-mode-2').addEventListener('click', () => UI.setBeerMode('mode2'));
+    document.getElementById('btn-mode-1')?.addEventListener('click', () => UI.setBeerMode('mode1'));
+    document.getElementById('btn-mode-2')?.addEventListener('click', () => UI.setBeerMode('mode2'));
 
-    document.getElementById('chart-filters').addEventListener('click', (e) => {
+    document.getElementById('chart-filters')?.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             currentState.chartRange = e.target.dataset.range;
             refreshUI();
@@ -544,7 +545,8 @@ function bindEvents() {
     
     document.querySelectorAll('.btn-quick-amount').forEach(btn => {
         btn.addEventListener('click', function() {
-            document.getElementById('custom-amount').value = this.dataset.amount;
+            const customAmt = document.getElementById('custom-amount');
+            if(customAmt) customAmt.value = this.dataset.amount;
         });
     });
 
@@ -567,35 +569,35 @@ function bindEvents() {
         });
     });
 
-    document.getElementById('start-stepper-btn').addEventListener('click', timerControl.start);
-    document.getElementById('stop-stepper-btn').addEventListener('click', timerControl.stop);
-    document.getElementById('manual-record-btn').addEventListener('click', UI.openManualInput);
+    document.getElementById('start-stepper-btn')?.addEventListener('click', timerControl.start);
+    document.getElementById('stop-stepper-btn')?.addEventListener('click', timerControl.stop);
+    document.getElementById('manual-record-btn')?.addEventListener('click', UI.openManualInput);
     
-    document.getElementById('btn-open-beer').addEventListener('click', () => {
+    document.getElementById('btn-open-beer')?.addEventListener('click', () => {
         editingLogId = null;
         UI.openBeerModal(null);
     });
-    document.getElementById('btn-open-check').addEventListener('click', () => {
+    document.getElementById('btn-open-check')?.addEventListener('click', () => {
         editingCheckId = null;
         UI.openCheckModal(null);
     });
 
-    document.getElementById('btn-share-sns').addEventListener('click', handleShare);
+    document.getElementById('btn-share-sns')?.addEventListener('click', handleShare);
     
-    document.getElementById('beer-form').addEventListener('submit', handleBeerSubmit);
-    document.getElementById('check-form').addEventListener('submit', handleCheckSubmit);
-    document.getElementById('btn-submit-manual').addEventListener('click', handleManualExerciseSubmit);
-    document.getElementById('btn-save-settings').addEventListener('click', handleSaveSettings);
+    document.getElementById('beer-form')?.addEventListener('submit', handleBeerSubmit);
+    document.getElementById('check-form')?.addEventListener('submit', handleCheckSubmit);
+    document.getElementById('btn-submit-manual')?.addEventListener('click', handleManualExerciseSubmit);
+    document.getElementById('btn-save-settings')?.addEventListener('click', handleSaveSettings);
 
-    document.getElementById('is-dry-day').addEventListener('change', function() { UI.toggleDryDay(this); });
+    document.getElementById('is-dry-day')?.addEventListener('change', function() { UI.toggleDryDay(this); });
 
-    document.getElementById('btn-export-logs').addEventListener('click', () => DataManager.exportCSV('logs'));
-    document.getElementById('btn-export-checks').addEventListener('click', () => DataManager.exportCSV('checks'));
-    document.getElementById('btn-copy-data').addEventListener('click', DataManager.copyToClipboard);
-    document.getElementById('btn-download-json').addEventListener('click', DataManager.exportJSON);
-    document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
+    document.getElementById('btn-export-logs')?.addEventListener('click', () => DataManager.exportCSV('logs'));
+    document.getElementById('btn-export-checks')?.addEventListener('click', () => DataManager.exportCSV('checks'));
+    document.getElementById('btn-copy-data')?.addEventListener('click', DataManager.copyToClipboard);
+    document.getElementById('btn-download-json')?.addEventListener('click', DataManager.exportJSON);
+    document.getElementById('btn-import-json')?.addEventListener('change', function() { DataManager.importJSON(this); });
 
-    document.getElementById('log-list').addEventListener('click', async (e) => {
+    document.getElementById('log-list')?.addEventListener('click', async (e) => {
         if (e.target.classList.contains('log-checkbox')) return; 
 
         const deleteBtn = e.target.closest('.delete-log-btn');
@@ -613,7 +615,7 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('btn-detail-delete').addEventListener('click', () => {
+    document.getElementById('btn-detail-delete')?.addEventListener('click', () => {
         const modal = document.getElementById('log-detail-modal');
         if (modal && modal.dataset.id) {
             const id = parseInt(modal.dataset.id);
@@ -622,7 +624,7 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('btn-detail-edit').addEventListener('click', async () => {
+    document.getElementById('btn-detail-edit')?.addEventListener('click', async () => {
         const modal = document.getElementById('log-detail-modal');
         if (modal && modal.dataset.id) {
             const id = parseInt(modal.dataset.id);
@@ -646,14 +648,14 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('log-list').addEventListener('change', (e) => {
+    document.getElementById('log-list')?.addEventListener('change', (e) => {
         if (e.target.classList.contains('log-checkbox')) {
             const count = document.querySelectorAll('.log-checkbox:checked').length;
             UI.updateBulkCount(count);
         }
     });
 
-    // 【追加】ヒートマップ期間移動イベント
+    // 【追加】ヒートマップ期間移動イベント (安全対策済み)
     document.getElementById('heatmap-prev')?.addEventListener('click', () => {
         currentState.heatmapOffset++;
         refreshUI();
@@ -666,7 +668,7 @@ function bindEvents() {
         }
     });
 
-    // 【追加】全データ削除イベント
+    // 【追加】全データ削除イベント (安全対策済み)
     document.getElementById('btn-reset-all')?.addEventListener('click', async () => {
         if(confirm('本当に全てのデータを削除して初期化しますか？\nこの操作は取り消せません。')) {
             if(confirm('これまでの記録が全て消えます。よろしいですか？')) {
@@ -684,6 +686,7 @@ function bindEvents() {
         }
     });
 
+    // ヒートマップのクリックイベント委譲 (安全対策済み)
     document.getElementById('heatmap-grid')?.addEventListener('click', async (e) => {
         const cell = e.target.closest('.heatmap-cell');
         if (cell && cell.dataset.date) {
@@ -701,6 +704,7 @@ function bindEvents() {
         }
     });
 
+    // ホーム画面の健康チェック編集ボタン (安全対策済み)
     document.getElementById('check-status')?.addEventListener('click', async (e) => {
         if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
             const todayStr = dayjs().format('YYYY-MM-DD');
@@ -714,7 +718,7 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('quick-input-area').addEventListener('click', (e) => {
+    document.getElementById('quick-input-area')?.addEventListener('click', (e) => {
         const btn = e.target.closest('.quick-beer-btn');
         if (btn) {
             editingLogId = null;
@@ -728,7 +732,7 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('beer-select').addEventListener('change', function() {
+    document.getElementById('beer-select')?.addEventListener('change', function() {
         const style = this.value;
         const abvInput = document.getElementById('preset-abv');
         if (style && abvInput) {
@@ -744,15 +748,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
     UI.applyTheme(savedTheme);
 
+    // イベント登録を実行 (エラーが出ても後続処理が走るように修正済み)
     bindEvents();
+    
     await migrateData();
 
     // Select options setup
     const exSelect = document.getElementById('exercise-select'); 
-    Object.keys(EXERCISE).forEach(k => { 
-        const o = document.createElement('option'); 
-        o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; exSelect.appendChild(o); 
-    });
+    if (exSelect) {
+        Object.keys(EXERCISE).forEach(k => { 
+            const o = document.createElement('option'); 
+            o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; exSelect.appendChild(o); 
+        });
+    }
     
     const settingExSelect = document.getElementById('setting-base-exercise');
     if (settingExSelect) {
@@ -761,19 +769,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const zs = document.getElementById('beer-size'); 
-    Object.keys(SIZE_DATA).forEach(k => { 
-        const o = document.createElement('option'); o.value = k; o.textContent = SIZE_DATA[k].label; 
-        if(k === '350') o.selected = true; zs.appendChild(o); 
-    });
+    if (zs) {
+        Object.keys(SIZE_DATA).forEach(k => { 
+            const o = document.createElement('option'); o.value = k; o.textContent = SIZE_DATA[k].label; 
+            if(k === '350') o.selected = true; zs.appendChild(o); 
+        });
+    }
 
     const p = Store.getProfile();
-    document.getElementById('weight-input').value = p.weight;
-    document.getElementById('height-input').value = p.height;
-    document.getElementById('age-input').value = p.age;
-    document.getElementById('gender-input').value = p.gender;
+    const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+    setVal('weight-input', p.weight);
+    setVal('height-input', p.height);
+    setVal('age-input', p.age);
+    setVal('gender-input', p.gender);
 
     UI.updateModeButtons();
-    document.getElementById('mode-selector').classList.remove('opacity-0');
+    document.getElementById('mode-selector')?.classList.remove('opacity-0');
 
     UI.setBeerMode('mode1');
     updateBeerSelectOptions(); 

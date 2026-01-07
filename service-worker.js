@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomutore-v25'; // バージョンを更新
+const CACHE_NAME = 'nomutore-v26'; // バージョンを更新
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
