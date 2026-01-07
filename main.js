@@ -5,6 +5,43 @@ import { UI, currentState, updateBeerSelectOptions, refreshUI, toggleModal } fro
 // Day.js をCDNからインポート
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
+/* ==========================================================================
+   Global Error Handling
+   ========================================================================== */
+const showErrorOverlay = (msg, source, lineno) => {
+    const overlay = document.getElementById('global-error-overlay');
+    const details = document.getElementById('error-details');
+    if (overlay && details) {
+        // 現在時刻
+        const now = new Date().toLocaleString();
+        // エラー詳細テキスト
+        const errText = `[${now}]\nMessage: ${msg}\nSource: ${source}:${lineno}\nUA: ${navigator.userAgent}`;
+        
+        details.textContent = errText;
+        overlay.classList.remove('hidden');
+        
+        // コピーボタンの機能付け
+        document.getElementById('btn-copy-error').onclick = () => {
+            navigator.clipboard.writeText(errText)
+                .then(() => alert('エラーログをコピーしました'))
+                .catch(() => alert('コピーに失敗しました'));
+        };
+    }
+    // コンソールにも出す
+    console.error('Global Error Caught:', msg);
+};
+
+// 1. 通常のJSエラー (SyntaxError, ReferenceErrorなど)
+window.onerror = function(msg, source, lineno, colno, error) {
+    showErrorOverlay(msg, source, lineno);
+    return false; // デフォルトの処理も走らせる
+};
+
+// 2. Promise由来のエラー (async/awaitの失敗など)
+window.addEventListener('unhandledrejection', function(event) {
+    showErrorOverlay(`Unhandled Promise Rejection: ${event.reason}`, 'Promise', 0);
+});
+
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // constants.js の CALORIES.STYLES のキーと整合性を取った定義

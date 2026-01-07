@@ -63,7 +63,27 @@
     <link rel="stylesheet" href="./style.css">
 </head>
 <body class="min-h-screen text-gray-800 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 select-none overscroll-none transition-colors duration-300">
-
+<div id="global-error-overlay" class="fixed inset-0 z-[100] bg-gray-900 bg-opacity-95 hidden flex flex-col items-center justify-center p-6 text-white text-center backdrop-blur-sm">
+        <div class="text-6xl mb-4">😵</div>
+        <h2 class="text-2xl font-black mb-2">Oops! Error</h2>
+        <p class="text-sm text-gray-300 mb-6">予期せぬエラーが発生しました。</p>
+        
+        <div class="w-full max-w-md bg-black bg-opacity-50 p-4 rounded-xl border border-gray-700 mb-6 text-left overflow-auto max-h-48">
+            <code id="error-details" class="text-xs font-mono text-red-400 break-all select-all"></code>
+        </div>
+        
+        <div class="flex gap-4 w-full max-w-md">
+            <button id="btn-copy-error" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition">
+                ログをコピー
+            </button>
+            <button onclick="location.reload()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-500/30">
+                再読み込み
+            </button>
+        </div>
+        <button onclick="document.getElementById('global-error-overlay').classList.add('hidden')" class="mt-8 text-xs text-gray-500 hover:text-white underline">
+            閉じて操作を続ける (非推奨)
+        </button>
+    </div>
     <div class="app-header-bg pt-12 pb-6 px-4 rounded-b-[2rem] shadow-sm border-b border-white dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
         <div class="container mx-auto max-w-xl relative">
             
