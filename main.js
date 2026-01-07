@@ -266,7 +266,7 @@ const deleteLog = async (id) => {
     await refreshUI();
 };
 
-// 【追加】一括削除ロジック
+// 一括削除ロジック
 const bulkDeleteLogs = async (ids) => {
     if (!ids || ids.length === 0) return;
     
@@ -597,9 +597,8 @@ function bindEvents() {
     document.getElementById('btn-import-json').addEventListener('change', function() { DataManager.importJSON(this); });
 
     document.getElementById('log-list').addEventListener('click', async (e) => {
-        // 【修正】編集モード中はクリックで詳細を開かないように制御可能だが
-        // チェックボックスクリック時のバブリングを考慮する
-        if (e.target.classList.contains('log-checkbox')) return; // チェックボックス操作はスルー
+        // チェックボックスクリック時のバブリングを考慮
+        if (e.target.classList.contains('log-checkbox')) return; 
 
         const deleteBtn = e.target.closest('.delete-log-btn');
         if (deleteBtn) {
@@ -608,7 +607,6 @@ function bindEvents() {
             return;
         }
 
-        // 編集モード中でも詳細確認→個別編集は可能とする
         const row = e.target.closest('.log-item-row');
         if (row) {
             const id = parseInt(row.dataset.id);
@@ -639,10 +637,13 @@ function bindEvents() {
         }
     });
 
-    // 【追加】編集モード切替
+    // 編集モード切替
     document.getElementById('btn-toggle-edit-mode')?.addEventListener('click', UI.toggleEditMode);
 
-    // 【追加】一括削除ボタン
+    // 全選択ボタン
+    document.getElementById('btn-select-all')?.addEventListener('click', UI.toggleSelectAll);
+
+    // 一括削除ボタン
     document.getElementById('btn-bulk-delete')?.addEventListener('click', async () => {
         const checkboxes = document.querySelectorAll('.log-checkbox:checked');
         const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
@@ -651,7 +652,7 @@ function bindEvents() {
         }
     });
 
-    // 【追加】チェックボックス変更検知（カウント更新）
+    // チェックボックス変更検知（カウント更新）
     document.getElementById('log-list').addEventListener('change', (e) => {
         if (e.target.classList.contains('log-checkbox')) {
             const count = document.querySelectorAll('.log-checkbox:checked').length;

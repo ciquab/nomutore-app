@@ -85,7 +85,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-2 opacity-60">
                     <span class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wide">IndexedDB</span>
-                    <span class="text-[10px] text-gray-400 font-medium">v12.10</span>
+                    <span class="text-[10px] text-gray-400 font-medium">v12.11</span>
                 </div>
             </div>
         </div>
@@ -253,12 +253,17 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-8 transition-colors relative group/history">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold text-gray-800 dark:text-white flex items-center">
-                            <span class="text-xl mr-2">📜</span> 最近の履歴
-                            <span id="history-base-label" class="ml-2 text-xs font-normal text-gray-400"></span>
-                        </h2>
-                        <button id="btn-toggle-edit-mode" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600">編集</button>
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1 min-w-0 mr-2">
+                             <h2 class="text-lg font-bold text-gray-800 dark:text-white flex items-center">
+                                <span class="text-xl mr-2">📜</span> 最近の履歴
+                             </h2>
+                             <p id="history-base-label" class="text-[10px] text-gray-400 font-normal mt-0.5 truncate"></p>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <button id="btn-select-all" class="hidden text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-gray-200 dark:hover:bg-gray-600">全選択</button>
+                            <button id="btn-toggle-edit-mode" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600">編集</button>
+                        </div>
                     </div>
                     
                     <div id="bulk-action-bar" class="hidden absolute bottom-4 left-0 w-full px-6 z-20">

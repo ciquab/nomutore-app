@@ -11,7 +11,7 @@ export let currentState = {
     chart: null, 
     timerId: null,
     chartRange: '1w',
-    isEditMode: false // 編集モード状態
+    isEditMode: false
 };
 
 // DOM要素のキャッシュ用オブジェクト
@@ -69,8 +69,8 @@ export const UI = {
             'detail-memo-container', 'detail-rating', 'detail-memo',
             'btn-detail-edit', 'btn-detail-delete',
             'beer-submit-btn', 'check-submit-btn',
-            // 【追加】一括削除・編集モード用
-            'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count'
+            'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count',
+            'btn-select-all', 'log-container' // log-containerを追加
         ];
 
         ids.forEach(id => {
@@ -453,12 +453,11 @@ export const UI = {
         toggleModal('log-detail-modal', true);
     },
 
-    // 【追加】編集モードの切替
+    // 編集モード切替
     toggleEditMode: () => {
         currentState.isEditMode = !currentState.isEditMode;
         const isEdit = currentState.isEditMode;
         
-        // ボタンのテキスト変更
         const btn = DOM.elements['btn-toggle-edit-mode'];
         if (btn) {
             btn.textContent = isEdit ? '完了' : '編集';
@@ -467,14 +466,29 @@ export const UI = {
                 : "text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg transition hover:bg-indigo-100 dark:hover:bg-gray-600";
         }
 
-        // 削除バーの表示切替
+        // 全選択ボタンの表示切替
+        const selectAllBtn = DOM.elements['btn-select-all'];
+        if (selectAllBtn) {
+            if (isEdit) selectAllBtn.classList.remove('hidden');
+            else {
+                selectAllBtn.classList.add('hidden');
+                selectAllBtn.textContent = '全選択'; // モード終了時にリセット
+            }
+        }
+
+        // コンテナのpadding調整 (ボタン被り対策)
+        const container = DOM.elements['log-container'];
+        if (container) {
+            if (isEdit) container.classList.add('pb-24');
+            else container.classList.remove('pb-24');
+        }
+
         const bar = DOM.elements['bulk-action-bar'];
         if (bar) {
             if (isEdit) bar.classList.remove('hidden');
             else bar.classList.add('hidden');
         }
 
-        // リスト内のチェックボックス表示切替
         const checkboxes = document.querySelectorAll('.edit-checkbox-area');
         checkboxes.forEach(el => {
             if (isEdit) el.classList.remove('hidden');
@@ -489,7 +503,25 @@ export const UI = {
         }
     },
 
-    // 【追加】選択件数の表示更新
+    // 【追加】全選択/解除機能
+    toggleSelectAll: () => {
+        const btn = DOM.elements['btn-select-all'];
+        const inputs = document.querySelectorAll('.log-checkbox');
+        const isAllSelected = btn.textContent === '全解除';
+
+        if (isAllSelected) {
+            // 全解除
+            inputs.forEach(i => i.checked = false);
+            btn.textContent = '全選択';
+            UI.updateBulkCount(0);
+        } else {
+            // 全選択
+            inputs.forEach(i => i.checked = true);
+            btn.textContent = '全解除';
+            UI.updateBulkCount(inputs.length);
+        }
+    },
+
     updateBulkCount: (count) => {
         const el = DOM.elements['bulk-selected-count'];
         if (el) el.textContent = count;
@@ -728,7 +760,6 @@ function renderLogList(logs) {
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        // 【修正】チェックボックスの追加 (currentState.isEditMode で表示制御)
         const checkHidden = currentState.isEditMode ? '' : 'hidden';
         const checkboxHtml = `<div class="edit-checkbox-area ${checkHidden} mr-3 flex-shrink-0"><input type="checkbox" class="log-checkbox w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600" value="${log.id}"></div>`;
 
