@@ -949,19 +949,17 @@ function renderLogList(logs) {
 }
 
 function renderBeerTank(currentBalance) {
-    const totalBalance = currentBalance; 
-
-    const modes = Store.getModes();
-    const targetStyle = currentState.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
-    const unitKcal = CALORIES.STYLES[targetStyle] || 145;
-    
-    const totalKcal = totalBalance * Calc.burnRate(EXERCISE['stepper'].mets);
-    const canCount = parseFloat((totalKcal / unitKcal).toFixed(1));
-
-    const baseEx = Store.getBaseExercise();
-    const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
-    const displayRate = Calc.burnRate(baseExData.mets);
-    const displayMinutes = totalKcal / displayRate;
+    // 【変更】ロジックを Calc.getTankDisplayData に委譲
+    // UIは「表示」のみに集中する
+    const { 
+        canCount, 
+        displayMinutes, 
+        baseExData, 
+        unitKcal, 
+        displayRate, 
+        totalKcal, 
+        targetStyle 
+    } = Calc.getTankDisplayData(currentBalance, currentState.beerMode);
 
     const liquid = DOM.elements['tank-liquid'];
     const emptyIcon = DOM.elements['tank-empty-icon'];
@@ -972,8 +970,8 @@ function renderBeerTank(currentBalance) {
     if (!liquid || !emptyIcon || !cansText || !minText || !msgText) return;
 
     requestAnimationFrame(() => {
-        if (totalBalance > 0) {
-            // 貯金がある時（変更なし）
+        if (currentBalance > 0) {
+            // 貯金がある時
             emptyIcon.style.opacity = '0';
             let h = (canCount / APP.TANK_MAX_CANS) * 100;
             liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
@@ -986,7 +984,7 @@ function renderBeerTank(currentBalance) {
             else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
             else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
         } else {
-            // 借金がある時（ここを改善）
+            // 借金がある時
             liquid.style.height = '0%';
             emptyIcon.style.opacity = '1';
             cansText.textContent = "0.0";
@@ -996,7 +994,6 @@ function renderBeerTank(currentBalance) {
             
             const debtCansVal = Math.abs(canCount); // 借金の本数（正の数）
 
-            // 借金が「1.5本」を超えたら、全額ではなく「スモールゴール」を提示
             if (debtCansVal > 1.5) {
                 // 1杯分を返すのに必要な分数を計算
                 const oneCanMin = Math.round(unitKcal / displayRate);
@@ -1004,7 +1001,6 @@ function renderBeerTank(currentBalance) {
                 msgText.textContent = `借金山積み...😱 まずは1杯分 (${oneCanMin}分) だけ返そう！`;
                 msgText.className = 'text-sm font-bold text-orange-500 animate-pulse';
             } else {
-                // 借金が少ない時は、これまで通り全額提示
                 msgText.textContent = `枯渇中... あと${debtCansVal.toFixed(1)}本分動こう😱`;
                 msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
             }

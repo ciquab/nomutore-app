@@ -113,15 +113,6 @@ const handleBeerSubmit = async (e) => {
     let saveCustomType = null;
     let saveRawAmount = null;
 
-    const calculateKcal = (ml, abv, type) => {
-        const alcoholG = ml * (abv / 100) * 0.8;
-        let kcal = alcoholG * 7;
-        if (type === 'sweet') {
-             kcal += ml * 0.15;
-        }
-        return kcal;
-    };
-
     if (isCustom) {
         const abv = parseFloat(document.getElementById('custom-abv').value);
         const ml = parseFloat(document.getElementById('custom-amount').value);
@@ -132,7 +123,7 @@ const handleBeerSubmit = async (e) => {
             return UI.showMessage('正しい数値を入力してください', 'error');
         }
 
-        totalKcal = calculateKcal(ml, abv, type);
+        totalKcal = Calc.calculateAlcoholKcal(ml, abv, type);
         
         logName = `Custom ${abv}% ${ml}ml` + (type==='dry' ? '🔥' : '🍺');
         logStyle = 'Custom';
@@ -158,7 +149,7 @@ const handleBeerSubmit = async (e) => {
         const sizeMl = parseFloat(z);
         const spec = STYLE_SPECS[s] || { type: 'sweet' };
         
-        const unitKcal = calculateKcal(sizeMl, userAbv, spec.type);
+        const unitKcal = Calc.calculateAlcoholKcal(sizeMl, userAbv, spec.type);
         totalKcal = unitKcal * c;
 
         logName = `${s} (${userAbv}%) x${c}`;
@@ -170,7 +161,7 @@ const handleBeerSubmit = async (e) => {
         saveIsCustom = false;
     }
 
-    const min = totalKcal / Calc.burnRate(EXERCISE['stepper'].mets);
+    const min = Calc.stepperEq(totalKcal);
 
     const logData = { 
         name: logName, 
