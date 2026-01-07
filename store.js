@@ -27,13 +27,11 @@ export const Store = {
 export const ExternalApp = {
     searchUntappd: (term) => {
         const query = encodeURIComponent(term);
-        const appUrl = `untappd://beer/search?q=${query}`;
+        // アプリスキーム(untappd://)の強制起動は廃止し、Web URLに統一
+        // OSが対応していれば、このHTTPSリンクから自動的にアプリが起動します
         const webUrl = `https://untappd.com/search?q=${query}`;
-        window.location.href = appUrl;
-        setTimeout(() => {
-            if (!document.hidden) {
-                window.open(webUrl, '_blank');
-            }
-        }, 1000);
+        
+        // 別タブで開く
+        window.open(webUrl, '_blank');
     }
 };
