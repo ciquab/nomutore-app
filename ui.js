@@ -13,7 +13,7 @@ export let currentState = {
     chartRange: '1w',
     isEditMode: false,
     heatmapOffset: 0 // 【追加】0:最新, 1:1週間前, ...
-　　logLimit: 50 // 【追加】初期表示は50件
+    logLimit: 50 // 【追加】初期表示は50件
 };
 
 // DOM要素のキャッシュ用オブジェクト

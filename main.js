@@ -644,7 +644,7 @@ function bindEvents() {
     });
 
     document.getElementById('btn-share-sns')?.addEventListener('click', handleShare);
-　　document.getElementById('btn-detail-share')?.addEventListener('click', handleDetailShare);
+    document.getElementById('btn-detail-share')?.addEventListener('click', handleDetailShare);
     
     document.getElementById('beer-form')?.addEventListener('submit', handleBeerSubmit);
     document.getElementById('check-form')?.addEventListener('submit', handleCheckSubmit);
