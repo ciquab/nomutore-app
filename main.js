@@ -313,18 +313,59 @@ const bulkDeleteLogs = async (ids) => {
     }
 };
 
+// 1. 既存の handleShare を「リッチなステータスシェア」に書き換え
 const handleShare = async () => {
-    const rankTitle = document.getElementById('rank-title').textContent || 'Rookie';
-    const balanceText = document.getElementById('tank-minutes').textContent || '0 min';
-    const isPositive = balanceText.includes('+');
+    // 最新のデータを取得して計算
+    const logs = await db.logs.toArray();
+    const checks = await db.checks.toArray();
     
+    // ランク情報の取得
+    const gradeData = Calc.getRecentGrade(checks, logs);
+    // Streak情報の取得
+    const streak = Calc.getCurrentStreak(logs, checks);
+    
+    // 貯金/借金残高の取得
+    const currentBalance = logs.reduce((sum, l) => sum + l.minutes, 0);
+    const balanceText = currentBalance >= 0 ? `+${currentBalance}分` : `${currentBalance}分`;
+    const balanceStatus = currentBalance >= 0 ? '貯金' : '借金';
+
+    // 投稿テキストの生成
+    const text = `現在: ${gradeData.label} (${gradeData.rank}) | 連続: ${streak}日🔥 | ${balanceStatus}: ${balanceText} | 飲んだら動く！健康管理アプリ #ノムトレ`;
+
+    shareToSocial(text);
+};
+
+// 2. 【新規】ログ詳細からのシェア機能
+const handleDetailShare = async () => {
+    const modal = document.getElementById('log-detail-modal');
+    if (!modal || !modal.dataset.id) return;
+    
+    const id = parseInt(modal.dataset.id);
+    const log = await db.logs.get(id);
+    if (!log) return;
+
     let text = '';
-    if (isPositive) {
-        text = `現在 ${balanceText} の貯金中！ランク: ${rankTitle} #ノムトレ #飲んだら動く`;
+    
+    if (log.minutes < 0) {
+        // 🍺 飲酒ログの場合
+        const debtMins = Math.abs(log.minutes);
+        const beerName = log.brand ? `${log.brand}` : (log.style || 'ビール');
+        const star = log.rating > 0 ? '★'.repeat(log.rating) : '';
+        
+        text = `🍺 飲みました: ${beerName} | 借金発生: 運動${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
-        text = `現在 ${balanceText} の借金中... 運動して返済します！ランク: ${rankTitle} #ノムトレ`;
+        // 🏃‍♀️ 運動ログの場合
+        const earnedMins = log.minutes;
+        const exName = log.name.split(' ')[1] || log.name; // アイコン除去
+        
+        text = `🏃‍♀️ 運動しました: ${exName} (${log.rawMinutes}分) | 借金返済: ビール換算で${earnedMins}分を確保！🍺 #ノムトレ #飲んだら動く`;
     }
 
+    shareToSocial(text);
+};
+
+// 3. 共通シェア関数 (Web Share API or Twitter)
+const shareToSocial = async (text) => {
     if (navigator.share) {
         try {
             await navigator.share({
@@ -612,6 +653,7 @@ function bindEvents() {
     });
 
     document.getElementById('btn-share-sns')?.addEventListener('click', handleShare);
+　　document.getElementById('btn-detail-share')?.addEventListener('click', handleDetailShare);
     
     document.getElementById('beer-form')?.addEventListener('submit', handleBeerSubmit);
     document.getElementById('check-form')?.addEventListener('submit', handleCheckSubmit);
