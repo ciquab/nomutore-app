@@ -428,14 +428,18 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
-        // 描画完了を待つために setTimeout でわずかに遅らせて実行します
-        setTimeout(() => {
-            window.scrollTo({
-                top: 0,
-                left: 0,
-                behavior: 'instant' // スムーズスクロール等の設定を無視して瞬時に移動
-            });
-        }, 10);
+        // 【修正】ここを書き換え
+    // タイミングをブラウザの描画サイクルに合わせる (requestAnimationFrame)
+    requestAnimationFrame(() => {
+        // 1. ウィンドウ自体のスクロール
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        
+        // 2. Body要素のスクロール (Chrome/Safari等でここが動いている場合がある)
+        document.body.scrollTop = 0;
+        
+        // 3. HTML要素のスクロール (Firefox/IE等でここが動いている場合がある)
+        document.documentElement.scrollTop = 0;
+    });
     },
 
     openLogDetail: (log) => {
