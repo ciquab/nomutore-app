@@ -13,6 +13,7 @@ export let currentState = {
     chartRange: '1w',
     isEditMode: false,
     heatmapOffset: 0 // 【追加】0:最新, 1:1週間前, ...
+　　logLimit: 50 // 【追加】初期表示は50件
 };
 
 // DOM要素のキャッシュ用オブジェクト
@@ -693,14 +694,46 @@ async function updateChartView() {
 
 // 【新規】ログリスト専用（最新50件のみ表示）
 async function updateLogListView() {
-    // timestampの逆順（新しい順）で50件取得
+    const listContainer = document.getElementById('log-list');
+    if (!listContainer) return;
+
+    // 1. 全データ件数を取得（ボタンを出すかどうかの判定用）
+    const totalCount = await db.logs.count();
+
+    // 2. 現在の制限件数（limit）を使ってデータを取得
+    const limit = currentState.logLimit || 50;
+    
     const limitedLogs = await db.logs
         .orderBy('timestamp')
         .reverse()
-        .limit(50)
+        .limit(limit)
         .toArray();
 
+    // 3. リストを描画（既存の関数を使用）
     renderLogList(limitedLogs);
+
+    // 4. 全件表示しきれていない場合、「もっと見る」ボタンを追加
+    if (totalCount > limit) {
+        const remaining = totalCount - limit;
+        
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'py-6 text-center pb-24'; // 下部ナビゲーションとかぶらないよう余白確保
+        btnContainer.innerHTML = `
+            <button id="btn-load-more" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-3 px-10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition text-xs flex items-center justify-center gap-2 mx-auto">
+                <span>⬇️</span>
+                <span>もっと見る (あと${remaining}件)</span>
+            </button>
+        `;
+        
+        // リストの最後に追加
+        listContainer.appendChild(btnContainer);
+
+        // クリックイベント: 件数を50件増やして再描画
+        document.getElementById('btn-load-more').addEventListener('click', () => {
+            currentState.logLimit += 50;
+            updateLogListView(); 
+        });
+    }
 }
 
 // 【修正】ヒートマップ描画 (オフセット対応)
