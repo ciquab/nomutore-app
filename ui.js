@@ -428,18 +428,23 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
-        // 【修正】ここを書き換え
-    // タイミングをブラウザの描画サイクルに合わせる (requestAnimationFrame)
-    requestAnimationFrame(() => {
-        // 1. ウィンドウ自体のスクロール
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        
-        // 2. Body要素のスクロール (Chrome/Safari等でここが動いている場合がある)
-        document.body.scrollTop = 0;
-        
-        // 3. HTML要素のスクロール (Firefox/IE等でここが動いている場合がある)
-        document.documentElement.scrollTop = 0;
-    });
+        // 【修正】最強のスクロールリセット（2段構え）
+        const resetScroll = () => {
+            window.scrollTo(0, 0);
+            document.body.scrollTop = 0;
+            document.documentElement.scrollTop = 0;
+        };
+
+        // 1回目：即時実行
+        resetScroll();
+
+        // 2回目：わずかに遅らせて実行（描画完了後を狙う）
+        // ※requestAnimationFrameを2回重ねることで「次の次の描画フレーム」を狙います
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                resetScroll();
+            });
+        });
     },
 
     openLogDetail: (log) => {
