@@ -428,8 +428,14 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
-        // 【追加】ここに追加！ タブ切り替え時に画面トップへ瞬時に移動
-        window.scrollTo(0, 0);
+        // 描画完了を待つために setTimeout でわずかに遅らせて実行します
+        setTimeout(() => {
+            window.scrollTo({
+                top: 0,
+                left: 0,
+                behavior: 'instant' // スムーズスクロール等の設定を無視して瞬時に移動
+            });
+        }, 10);
     },
 
     openLogDetail: (log) => {
