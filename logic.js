@@ -62,7 +62,14 @@ export const Calc = {
         return logs.some(l => l.minutes < 0 && target.isSame(dayjs(l.timestamp), 'day'));
     },
     
-    getDryDayCount: (checks) => checks.filter(c => c.isDryDay).length,
+    getDryDayCount: (checks) => {
+        // ★修正: 日付重複を除外してユニークカウント
+        const uniqueDays = new Set();
+        checks.forEach(c => {
+            if (c.isDryDay) uniqueDays.add(dayjs(c.timestamp).format('YYYY-MM-DD'));
+        });
+        return uniqueDays.size;
+    },
 
     // 【改善】ルーキー救済対応のグレード判定
     getRecentGrade: (checks, logs = []) => {
@@ -81,9 +88,14 @@ export const Calc = {
         // cutoffDate = 本日 - 28日
         const cutoffDate = NOW.subtract(PERIOD_DAYS, 'day').startOf('day');
 
-        const recentDryDays = checks.filter(c => {
-            return c.isDryDay && dayjs(c.timestamp).isAfter(cutoffDate);
-        }).length;
+        // ★修正: 日付重複を除外してユニークカウント
+        const uniqueRecentDryDays = new Set();
+        checks.forEach(c => {
+            if (c.isDryDay && dayjs(c.timestamp).isAfter(cutoffDate)) {
+                uniqueRecentDryDays.add(dayjs(c.timestamp).format('YYYY-MM-DD'));
+            }
+        });
+        const recentDryDays = uniqueRecentDryDays.size;
 
         // ルーキーモード (開始28日未満)
         if (daysSinceStart < 28) {
