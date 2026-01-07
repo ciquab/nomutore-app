@@ -56,7 +56,7 @@ export const UI = {
             'check-date', 'check-weight', 
             'manual-exercise-name', 'manual-date', 
             'weight-input', 'height-input', 'age-input', 'gender-input',
-            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input',
+            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input','setting-default-record-exercise',
             'btn-mode-1', 'btn-mode-2', 
             'tank-liquid', 'tank-empty-icon', 'tank-cans', 'tank-minutes', 'tank-message',
             'log-list', 'history-base-label',
@@ -369,7 +369,8 @@ export const UI = {
         setVal('setting-mode-2', modes.mode2);
         setVal('setting-base-exercise', Store.getBaseExercise());
         setVal('theme-input', Store.getTheme());
-        
+        setVal('setting-default-record-exercise', Store.getDefaultRecordExercise());        
+
         toggleModal('settings-modal', true);
     },
 
@@ -427,6 +428,8 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
+        // 【追加】ここに追加！ タブ切り替え時に画面トップへ瞬時に移動
+        window.scrollTo(0, 0);
     },
 
     openLogDetail: (log) => {
@@ -589,8 +592,6 @@ export function updateBeerSelectOptions() {
         m2.innerHTML = ''; m2.appendChild(frag2);
     }
 }
-
-// ui.js
 
 // メインの更新関数（全件取得を廃止）
 export async function refreshUI() {
@@ -899,7 +900,6 @@ function renderLogList(logs) {
     list.appendChild(spacer);
 }
 
-// 【変更】引数を (logs) から (currentBalance) に変更
 function renderBeerTank(currentBalance) {
     // const totalBalance = logs.reduce((sum, log) => sum + log.minutes, 0); // ←この行を削除
     const totalBalance = currentBalance; // 引数をそのまま使う

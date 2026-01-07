@@ -744,6 +744,21 @@ function bindEvents() {
             if (spec) abvInput.value = spec.abv;
         }
     });
+    
+    // 【追加】システム（端末）のテーマ変更をリアルタイムで監視
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        // 現在のアプリ設定を取得
+        const currentSetting = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
+        
+        // 設定が「端末に合わせる(system)」の場合のみ、自動で切り替える
+        if (currentSetting === 'system') {
+            // テーマを再適用（UI.applyTheme内で再度システム設定を判定してくれる）
+            UI.applyTheme('system');
+            
+            // 重要：グラフの色（文字やグリッド線）を更新するために画面を再描画する
+            refreshUI();
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
