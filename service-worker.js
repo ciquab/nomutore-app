@@ -1,34 +1,33 @@
-const CACHE_NAME = 'nomutore-v28'; // バージョンを更新
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'nomutore-v30'; // 更新時はここを変更
+
+// 1. アプリ本体のファイル（確実にキャッシュする）
+// ※外部URL(CDN)はここには含めないでください
+const APP_SHELL = [
     './',
     './index.html',
     './manifest.json',
-    './style.css',          // パス修正 (css/削除)
-    './main.js',            // パス修正 (js/削除)
-    './constants.js',       // パス修正 (js/削除)
-    './store.js',           // パス修正 (js/削除)
-    './logic.js',           // パス修正 (js/削除)
-    './ui.js',              // パス修正 (js/削除)
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap',
-    'https://cdn.tailwindcss.com',
-    'https://cdn.jsdelivr.net/npm/chart.js',
-    'https://unpkg.com/dexie@3.2.4/dist/dexie.js',
-    'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm',
-    'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm'
+    './style.css',
+    './main.js',
+    './constants.js',
+    './store.js',
+    './logic.js',
+    './ui.js',
+    './icon-192.png' // アイコンがあれば追加
 ];
 
-// インストール時にキャッシュする
+// インストール処理
 self.addEventListener('install', (event) => {
-    // 新しいSWをすぐに有効化する
     self.skipWaiting();
-    
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+            .then((cache) => {
+                console.log('Opened cache');
+                return cache.addAll(APP_SHELL);
+            })
     );
 });
 
-// 新しいSWが有効になったら、古いキャッシュを削除する
+// 古いキャッシュの削除
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
@@ -39,18 +38,42 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
-        }).then(() => self.clients.claim()) // すぐに制御を開始
+        }).then(() => self.clients.claim())
     );
 });
 
-// リクエスト時にキャッシュがあればそれを返す
+// リクエスト処理（ランタイムキャッシュ戦略）
 self.addEventListener('fetch', (event) => {
+    // POSTメソッドやchrome-extensionスキームなどはキャッシュしない
+    if (event.request.method !== 'GET') return;
+    if (!event.request.url.startsWith('http')) return;
+
     event.respondWith(
         caches.match(event.request)
-            .then((response) => {
-                // キャッシュがあれば返す、なければネットワークへ
-                return response || fetch(event.request).catch(() => {
-                    // オフライン等のエラーハンドリング（必要に応じて）
+            .then((cachedResponse) => {
+                // 1. キャッシュにあればそれを返す
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+
+                // 2. キャッシュになければネットワークに取りに行く
+                return fetch(event.request).then((networkResponse) => {
+                    // レスポンスが正しいか確認
+                    // status === 0 はCDNなどのOpaque Response（不透明なレスポンス）を許可するため
+                    if (!networkResponse || (networkResponse.status !== 200 && networkResponse.status !== 0)) {
+                        return networkResponse;
+                    }
+
+                    // 3. 取得できたレスポンスをキャッシュに複製して保存（次回以降のために）
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+
+                    return networkResponse;
+                }).catch(() => {
+                    // 4. オフラインでキャッシュもなく、ネットワークも繋がらない場合
+                    // 必要であればオフライン専用ページを返す処理をここに書く
                 });
             })
     );

@@ -56,7 +56,7 @@ export const UI = {
             'check-date', 'check-weight', 
             'manual-exercise-name', 'manual-date', 
             'weight-input', 'height-input', 'age-input', 'gender-input',
-            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input','setting-default-record-exercise',
+            'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input',
             'btn-mode-1', 'btn-mode-2', 
             'tank-liquid', 'tank-empty-icon', 'tank-cans', 'tank-minutes', 'tank-message',
             'log-list', 'history-base-label',
@@ -369,8 +369,7 @@ export const UI = {
         setVal('setting-mode-2', modes.mode2);
         setVal('setting-base-exercise', Store.getBaseExercise());
         setVal('theme-input', Store.getTheme());
-        setVal('setting-default-record-exercise', Store.getDefaultRecordExercise());        
-
+        
         toggleModal('settings-modal', true);
     },
 
@@ -591,25 +590,101 @@ export function updateBeerSelectOptions() {
     }
 }
 
+// ui.js
+
+// メインの更新関数（全件取得を廃止）
 export async function refreshUI() {
     try {
-        const logs = await db.logs.toArray();
-        const checks = await db.checks.toArray();
-
-        renderLogList(logs);
-        renderBeerTank(logs);
-        renderCheckStatus(checks, logs);
-        renderLiverRank(checks, logs); 
-        renderWeeklyAndHeatUp(logs, checks);
-        renderQuickButtons(logs); 
+        // 1. タンク残高計算 (全オブジェクトをメモリに展開せず、合計値だけ計算)
+        let totalBalance = 0;
+        await db.logs.each(log => { totalBalance += log.minutes; });
         
-        if(document.getElementById('tab-history')?.classList.contains('active')) {
-            renderChart(logs, checks);
-            renderHeatmap(logs, checks);
+        // 2. ホーム画面用：直近40日分のデータのみ取得（ランク、Streak、週間スタンプ用）
+        // ※「全期間」のデータを渡すと重くなるため、直近だけで計算させます
+        const recentLimit = dayjs().subtract(40, 'day').valueOf();
+        const recentLogs = await db.logs.where('timestamp').above(recentLimit).toArray();
+        const recentChecks = await db.checks.where('timestamp').above(recentLimit).toArray();
+
+        // ホーム画面パーツの更新
+        renderBeerTank(totalBalance); // 数値を渡す
+        renderCheckStatus(recentChecks, recentLogs);
+        renderLiverRank(recentChecks, recentLogs); 
+        renderWeeklyAndHeatUp(recentLogs, recentChecks);
+        renderQuickButtons(recentLogs); 
+        
+        // 3. 履歴タブが開いている場合のみ、重い処理（グラフ・ヒートマップ）を実行
+        const isHistoryTab = document.getElementById('tab-history')?.classList.contains('active');
+        if(isHistoryTab) {
+            await updateChartView();
+            await updateHeatmapView();
+            await updateLogListView();
         }
     } catch (err) {
         console.error("Failed to refresh UI:", err);
     }
+}
+
+// 【新規】ヒートマップ専用のデータ取得・描画関数
+export async function updateHeatmapView() {
+    // 現在のオフセットに基づいて、取得すべき期間を計算
+    const today = dayjs();
+    const dayOfWeek = today.day(); 
+    // 表示期間の終了日（土曜日）
+    let endDay = today.add(6 - dayOfWeek, 'day'); 
+    if (currentState.heatmapOffset > 0) {
+        endDay = endDay.subtract(currentState.heatmapOffset, 'week');
+    }
+    // 表示期間の開始日（5週間前の日曜日）
+    const startDay = endDay.subtract(35, 'day'); 
+
+    const startTs = startDay.valueOf();
+    const endTs = endDay.endOf('day').valueOf();
+
+    // 必要な期間のデータだけをDBから取得
+    const rangeLogs = await db.logs.where('timestamp').between(startTs, endTs, true, true).toArray();
+    const rangeChecks = await db.checks.where('timestamp').between(startTs, endTs, true, true).toArray();
+
+    // 既存のrenderHeatmapを再利用するが、渡すデータは絞り込まれたもの
+    renderHeatmap(rangeLogs, rangeChecks);
+}
+
+// 【新規】チャート専用のデータ取得・描画関数
+async function updateChartView() {
+    let startTs = 0;
+    const now = dayjs();
+
+    // フィルタに応じて取得範囲を決定
+    if (currentState.chartRange === '1w') {
+        startTs = now.subtract(7, 'day').startOf('day').valueOf();
+    } else if (currentState.chartRange === '1m') {
+        startTs = now.subtract(30, 'day').startOf('day').valueOf();
+    } else {
+        startTs = 0; // 全期間
+    }
+
+    let rangeLogs, rangeChecks;
+    if (startTs > 0) {
+        rangeLogs = await db.logs.where('timestamp').above(startTs).toArray();
+        rangeChecks = await db.checks.where('timestamp').above(startTs).toArray();
+    } else {
+        // 全期間の場合のみ全件取得（頻度が低いので許容、もしくはここもLimitかける等は要検討）
+        rangeLogs = await db.logs.toArray();
+        rangeChecks = await db.checks.toArray();
+    }
+
+    renderChart(rangeLogs, rangeChecks);
+}
+
+// 【新規】ログリスト専用（最新50件のみ表示）
+async function updateLogListView() {
+    // timestampの逆順（新しい順）で50件取得
+    const limitedLogs = await db.logs
+        .orderBy('timestamp')
+        .reverse()
+        .limit(50)
+        .toArray();
+
+    renderLogList(limitedLogs);
 }
 
 // 【修正】ヒートマップ描画 (オフセット対応)
@@ -824,8 +899,11 @@ function renderLogList(logs) {
     list.appendChild(spacer);
 }
 
-function renderBeerTank(logs) {
-    const totalBalance = logs.reduce((sum, log) => sum + log.minutes, 0);
+// 【変更】引数を (logs) から (currentBalance) に変更
+function renderBeerTank(currentBalance) {
+    // const totalBalance = logs.reduce((sum, log) => sum + log.minutes, 0); // ←この行を削除
+    const totalBalance = currentBalance; // 引数をそのまま使う
+
     const modes = Store.getModes();
     const targetStyle = currentState.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
     const unitKcal = CALORIES.STYLES[targetStyle] || 145;
