@@ -6,14 +6,42 @@ import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 // 紙吹雪ライブラリ
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm';
 
-export let currentState = { 
+// 【変更】外部から直接アクセスできない非公開の状態変数
+const _state = { 
     beerMode: 'mode1', 
     chart: null, 
     timerId: null,
     chartRange: '1w',
     isEditMode: false,
-    heatmapOffset: 0, // 【追加】0:最新, 1:1週間前, ...
-    logLimit: 50 // 【追加】初期表示は50件
+    heatmapOffset: 0,
+    logLimit: 50
+};
+
+// 【新規】状態へのアクセスを管理するマネージャー
+export const StateManager = {
+    // 読み取り専用プロパティ (Getters)
+    get beerMode() { return _state.beerMode; },
+    get chart() { return _state.chart; },
+    get timerId() { return _state.timerId; },
+    get chartRange() { return _state.chartRange; },
+    get isEditMode() { return _state.isEditMode; },
+    get heatmapOffset() { return _state.heatmapOffset; },
+    get logLimit() { return _state.logLimit; },
+
+    // 状態更新メソッド (Setters) - ここにログを仕込めば変更を追跡可能
+    setBeerMode: (v) => { _state.beerMode = v; },
+    setChart: (v) => { _state.chart = v; },
+    setTimerId: (v) => { _state.timerId = v; },
+    setChartRange: (v) => { _state.chartRange = v; },
+    setEditMode: (v) => { _state.isEditMode = v; },
+    setHeatmapOffset: (v) => { _state.heatmapOffset = v; },
+    setLogLimit: (v) => { _state.logLimit = v; },
+    
+    // インクリメント/デクリメントなどの便利メソッド
+    incrementHeatmapOffset: () => { _state.heatmapOffset++; },
+    decrementHeatmapOffset: () => { if(_state.heatmapOffset > 0) _state.heatmapOffset--; },
+    incrementLogLimit: (amount = 50) => { _state.logLimit += amount; },
+    toggleEditMode: () => { _state.isEditMode = !_state.isEditMode; return _state.isEditMode; }
 };
 
 // DOM要素のキャッシュ用オブジェクト
@@ -73,7 +101,6 @@ export const UI = {
             'beer-submit-btn', 'check-submit-btn',
             'btn-toggle-edit-mode', 'bulk-action-bar', 'btn-bulk-delete', 'bulk-selected-count',
             'btn-select-all', 'log-container',
-            // 【追加】ヒートマップ移動・全削除用ID
             'heatmap-prev', 'heatmap-next', 'heatmap-period-label', 'btn-reset-all'
         ];
 
@@ -115,8 +142,6 @@ export const UI = {
         const target = document.getElementById('chart-container');
         if (!historyTab || !target || document.getElementById('heatmap-wrapper')) return;
 
-        // index.html側で既に構造を作成している場合はここはスキップされるが、
-        // 万が一JS側で生成する場合のために残しておく（ただし今回はindex.htmlを修正済みなのでここは予備）
         const wrapper = document.createElement('div');
         wrapper.id = 'heatmap-wrapper';
         wrapper.className = "mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4";
@@ -388,7 +413,7 @@ export const UI = {
     },
 
     setBeerMode: (mode) => {
-        currentState.beerMode = mode;
+        StateManager.setBeerMode(mode); // StateManagerを使用
         const lBtn = DOM.elements['btn-mode-1'];
         const hBtn = DOM.elements['btn-mode-2'];
         const liq = DOM.elements['tank-liquid'];
@@ -429,18 +454,15 @@ export const UI = {
         if (tabId === 'tab-history') {
             refreshUI(); 
         }
-        // 【修正】最強のスクロールリセット（2段構え）
+        
         const resetScroll = () => {
             window.scrollTo(0, 0);
             document.body.scrollTop = 0;
             document.documentElement.scrollTop = 0;
         };
 
-        // 1回目：即時実行
         resetScroll();
 
-        // 2回目：わずかに遅らせて実行（描画完了後を狙う）
-        // ※requestAnimationFrameを2回重ねることで「次の次の描画フレーム」を狙います
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 resetScroll();
@@ -489,8 +511,7 @@ export const UI = {
     },
 
     toggleEditMode: () => {
-        currentState.isEditMode = !currentState.isEditMode;
-        const isEdit = currentState.isEditMode;
+        const isEdit = StateManager.toggleEditMode(); // StateManagerを使用
         
         const btn = document.getElementById('btn-toggle-edit-mode');
         if (btn) {
@@ -577,8 +598,6 @@ export function updateBeerSelectOptions() {
     defaultOpt.textContent = "選択してください";
     fragment.appendChild(defaultOpt);
 
-    const r = Calc.burnRate(exData.mets); 
-    
     const labelEl = DOM.elements['beer-select-mode-label'];
     if (labelEl) labelEl.textContent = `${exData.icon} ${exData.label} 換算`;
 
@@ -609,27 +628,21 @@ export function updateBeerSelectOptions() {
     }
 }
 
-// メインの更新関数（全件取得を廃止）
 export async function refreshUI() {
     try {
-        // 1. タンク残高計算 (全オブジェクトをメモリに展開せず、合計値だけ計算)
         let totalBalance = 0;
         await db.logs.each(log => { totalBalance += log.minutes; });
         
-        // 2. ホーム画面用：直近40日分のデータのみ取得（ランク、Streak、週間スタンプ用）
-        // ※「全期間」のデータを渡すと重くなるため、直近だけで計算させます
         const recentLimit = dayjs().subtract(40, 'day').valueOf();
         const recentLogs = await db.logs.where('timestamp').above(recentLimit).toArray();
         const recentChecks = await db.checks.where('timestamp').above(recentLimit).toArray();
 
-        // ホーム画面パーツの更新
-        renderBeerTank(totalBalance); // 数値を渡す
+        renderBeerTank(totalBalance);
         renderCheckStatus(recentChecks, recentLogs);
         renderLiverRank(recentChecks, recentLogs); 
         renderWeeklyAndHeatUp(recentLogs, recentChecks);
         renderQuickButtons(recentLogs); 
         
-        // 3. 履歴タブが開いている場合のみ、重い処理（グラフ・ヒートマップ）を実行
         const isHistoryTab = document.getElementById('tab-history')?.classList.contains('active');
         if(isHistoryTab) {
             await updateChartView();
@@ -641,42 +654,37 @@ export async function refreshUI() {
     }
 }
 
-// 【新規】ヒートマップ専用のデータ取得・描画関数
 export async function updateHeatmapView() {
-    // 現在のオフセットに基づいて、取得すべき期間を計算
     const today = dayjs();
     const dayOfWeek = today.day(); 
-    // 表示期間の終了日（土曜日）
     let endDay = today.add(6 - dayOfWeek, 'day'); 
-    if (currentState.heatmapOffset > 0) {
-        endDay = endDay.subtract(currentState.heatmapOffset, 'week');
+    
+    if (StateManager.heatmapOffset > 0) { // StateManagerを使用
+        endDay = endDay.subtract(StateManager.heatmapOffset, 'week');
     }
-    // 表示期間の開始日（5週間前の日曜日）
+    
     const startDay = endDay.subtract(35, 'day'); 
 
     const startTs = startDay.valueOf();
     const endTs = endDay.endOf('day').valueOf();
 
-    // 必要な期間のデータだけをDBから取得
     const rangeLogs = await db.logs.where('timestamp').between(startTs, endTs, true, true).toArray();
     const rangeChecks = await db.checks.where('timestamp').between(startTs, endTs, true, true).toArray();
 
-    // 既存のrenderHeatmapを再利用するが、渡すデータは絞り込まれたもの
     renderHeatmap(rangeLogs, rangeChecks);
 }
 
-// 【新規】チャート専用のデータ取得・描画関数
 async function updateChartView() {
     let startTs = 0;
     const now = dayjs();
 
-    // フィルタに応じて取得範囲を決定
-    if (currentState.chartRange === '1w') {
+    // StateManagerを使用
+    if (StateManager.chartRange === '1w') {
         startTs = now.subtract(7, 'day').startOf('day').valueOf();
-    } else if (currentState.chartRange === '1m') {
+    } else if (StateManager.chartRange === '1m') {
         startTs = now.subtract(30, 'day').startOf('day').valueOf();
     } else {
-        startTs = 0; // 全期間
+        startTs = 0; 
     }
 
     let rangeLogs, rangeChecks;
@@ -684,7 +692,6 @@ async function updateChartView() {
         rangeLogs = await db.logs.where('timestamp').above(startTs).toArray();
         rangeChecks = await db.checks.where('timestamp').above(startTs).toArray();
     } else {
-        // 全期間の場合のみ全件取得（頻度が低いので許容、もしくはここもLimitかける等は要検討）
         rangeLogs = await db.logs.toArray();
         rangeChecks = await db.checks.toArray();
     }
@@ -692,16 +699,12 @@ async function updateChartView() {
     renderChart(rangeLogs, rangeChecks);
 }
 
-// 【新規】ログリスト専用（最新50件のみ表示）
 async function updateLogListView() {
     const listContainer = document.getElementById('log-list');
     if (!listContainer) return;
 
-    // 1. 全データ件数を取得（ボタンを出すかどうかの判定用）
     const totalCount = await db.logs.count();
-
-    // 2. 現在の制限件数（limit）を使ってデータを取得
-    const limit = currentState.logLimit || 50;
+    const limit = StateManager.logLimit || 50; // StateManagerを使用
     
     const limitedLogs = await db.logs
         .orderBy('timestamp')
@@ -709,15 +712,13 @@ async function updateLogListView() {
         .limit(limit)
         .toArray();
 
-    // 3. リストを描画（既存の関数を使用）
     renderLogList(limitedLogs);
 
-    // 4. 全件表示しきれていない場合、「もっと見る」ボタンを追加
     if (totalCount > limit) {
         const remaining = totalCount - limit;
         
         const btnContainer = document.createElement('div');
-        btnContainer.className = 'py-6 text-center pb-24'; // 下部ナビゲーションとかぶらないよう余白確保
+        btnContainer.className = 'py-6 text-center pb-24';
         btnContainer.innerHTML = `
             <button id="btn-load-more" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-3 px-10 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition text-xs flex items-center justify-center gap-2 mx-auto">
                 <span>⬇️</span>
@@ -725,18 +726,15 @@ async function updateLogListView() {
             </button>
         `;
         
-        // リストの最後に追加
         listContainer.appendChild(btnContainer);
 
-        // クリックイベント: 件数を50件増やして再描画
         document.getElementById('btn-load-more').addEventListener('click', () => {
-            currentState.logLimit += 50;
+            StateManager.incrementLogLimit(50); // StateManagerを使用
             updateLogListView(); 
         });
     }
 }
 
-// 【修正】ヒートマップ描画 (オフセット対応)
 function renderHeatmap(logs, checks) {
     let grid = DOM.elements['heatmap-grid'];
     if (!grid) {
@@ -752,31 +750,31 @@ function renderHeatmap(logs, checks) {
     const today = dayjs();
     const dayOfWeek = today.day(); 
     
-    // 【修正】オフセットに基づき基準日を計算
     let endDay = today.add(6 - dayOfWeek, 'day'); 
-    if (currentState.heatmapOffset > 0) {
-        endDay = endDay.subtract(currentState.heatmapOffset, 'week');
+    // StateManagerを使用
+    if (StateManager.heatmapOffset > 0) {
+        endDay = endDay.subtract(StateManager.heatmapOffset, 'week');
     }
     
     const totalWeeks = 5;
     const totalDays = totalWeeks * 7;
     const startDay = endDay.subtract(totalDays - 1, 'day'); 
     
-    // ★修正: getElementById で直接取得し、存在確認をする
     const label = document.getElementById('heatmap-period-label');
     if (label) {
-        if (currentState.heatmapOffset === 0) {
+        // StateManagerを使用
+        if (StateManager.heatmapOffset === 0) {
             label.textContent = "Last 5 Weeks";
         } else {
             label.textContent = `${startDay.format('M/D')} - ${endDay.format('M/D')}`;
         }
     }
 
-    // 【追加】ボタンの状態更新
     const nextBtn = document.getElementById('heatmap-next');
     if (nextBtn) {
-        nextBtn.disabled = (currentState.heatmapOffset <= 0);
-        if (currentState.heatmapOffset <= 0) {
+        // StateManagerを使用
+        nextBtn.disabled = (StateManager.heatmapOffset <= 0);
+        if (StateManager.heatmapOffset <= 0) {
             nextBtn.classList.add('opacity-30', 'cursor-not-allowed');
         } else {
             nextBtn.classList.remove('opacity-30', 'cursor-not-allowed');
@@ -921,7 +919,8 @@ function renderLogList(logs) {
         const kcal = Math.abs(log.minutes) * stepperRate;
         const displayMinutes = Math.round(kcal / displayRate) * (log.minutes < 0 ? -1 : 1);
 
-        const checkHidden = currentState.isEditMode ? '' : 'hidden';
+        // StateManagerを使用
+        const checkHidden = StateManager.isEditMode ? '' : 'hidden';
         const checkboxHtml = `<div class="edit-checkbox-area ${checkHidden} mr-3 flex-shrink-0"><input type="checkbox" class="log-checkbox w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 bg-gray-100 dark:bg-gray-700 dark:border-gray-600" value="${log.id}"></div>`;
 
         return `<div class="log-item-row flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors cursor-pointer" data-id="${log.id}">
@@ -941,16 +940,15 @@ function renderLogList(logs) {
 
     list.innerHTML = htmlItems.join('');
     
-    // ボタン被り防止用スペーサー
     const spacer = document.createElement('div');
     spacer.id = 'edit-spacer';
-    spacer.className = `${currentState.isEditMode ? 'block' : 'hidden'} h-24 w-full flex-shrink-0`;
+    // StateManagerを使用
+    spacer.className = `${StateManager.isEditMode ? 'block' : 'hidden'} h-24 w-full flex-shrink-0`;
     list.appendChild(spacer);
 }
 
 function renderBeerTank(currentBalance) {
-    // 【変更】ロジックを Calc.getTankDisplayData に委譲
-    // UIは「表示」のみに集中する
+    // StateManagerを使用
     const { 
         canCount, 
         displayMinutes, 
@@ -959,7 +957,7 @@ function renderBeerTank(currentBalance) {
         displayRate, 
         totalKcal, 
         targetStyle 
-    } = Calc.getTankDisplayData(currentBalance, currentState.beerMode);
+    } = Calc.getTankDisplayData(currentBalance, StateManager.beerMode);
 
     const liquid = DOM.elements['tank-liquid'];
     const emptyIcon = DOM.elements['tank-empty-icon'];
@@ -971,7 +969,6 @@ function renderBeerTank(currentBalance) {
 
     requestAnimationFrame(() => {
         if (currentBalance > 0) {
-            // 貯金がある時
             emptyIcon.style.opacity = '0';
             let h = (canCount / APP.TANK_MAX_CANS) * 100;
             liquid.style.height = `${Math.max(5, Math.min(100, h))}%`;
@@ -984,7 +981,6 @@ function renderBeerTank(currentBalance) {
             else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
             else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
         } else {
-            // 借金がある時
             liquid.style.height = '0%';
             emptyIcon.style.opacity = '1';
             cansText.textContent = "0.0";
@@ -992,12 +988,10 @@ function renderBeerTank(currentBalance) {
             minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
             minText.className = 'text-sm font-bold text-red-500';
             
-            const debtCansVal = Math.abs(canCount); // 借金の本数（正の数）
+            const debtCansVal = Math.abs(canCount);
 
             if (debtCansVal > 1.5) {
-                // 1杯分を返すのに必要な分数を計算
                 const oneCanMin = Math.round(unitKcal / displayRate);
-                
                 msgText.textContent = `借金山積み...😱 まずは1杯分 (${oneCanMin}分) だけ返そう！`;
                 msgText.className = 'text-sm font-bold text-orange-500 animate-pulse';
             } else {
@@ -1187,8 +1181,9 @@ function renderChart(logs, checks) {
             const activeClass = "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
             const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
             
+            // StateManagerを使用
             btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all " + 
-                (btn.dataset.range === currentState.chartRange ? activeClass : inactiveClass);
+                (btn.dataset.range === StateManager.chartRange ? activeClass : inactiveClass);
         });
     }
 
@@ -1196,9 +1191,10 @@ function renderChart(logs, checks) {
         const now = dayjs();
         let cutoffDate = 0;
         
-        if (currentState.chartRange === '1w') {
+        // StateManagerを使用
+        if (StateManager.chartRange === '1w') {
             cutoffDate = now.subtract(7, 'day').valueOf();
-        } else if (currentState.chartRange === '1m') {
+        } else if (StateManager.chartRange === '1m') {
             cutoffDate = now.subtract(30, 'day').valueOf();
         } else {
             cutoffDate = 0;
@@ -1253,13 +1249,14 @@ function renderChart(logs, checks) {
         const bal = dataArray.map(d => d.bal);
         const weight = dataArray.map(d => d.weight);
 
-        if (currentState.chart) currentState.chart.destroy();
+        // StateManagerを使用
+        if (StateManager.chart) StateManager.chart.destroy();
         
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#9ca3af' : '#6b7280';
         const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-        currentState.chart = new Chart(ctxCanvas.getContext('2d'), {
+        const newChart = new Chart(ctxCanvas.getContext('2d'), {
             type: 'bar',
             data: { 
                 labels: labels, 
@@ -1318,7 +1315,7 @@ function renderChart(logs, checks) {
                         stacked: false, 
                         beginAtZero: true,
                         title: { display: true, text: 'カロリー収支 (分)', color: textColor },
-                        ticks: { color: textColor },
+                        ticks: { color: textColor },\
                         grid: { color: gridColor }
                     },
                     y1: {
@@ -1337,5 +1334,9 @@ function renderChart(logs, checks) {
                 } 
             }
         });
+        
+        // StateManagerを使用
+        StateManager.setChart(newChart);
+
     } catch(e) { console.error('Chart Error', e); }
 }

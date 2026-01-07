@@ -1,7 +1,8 @@
 import { APP, EXERCISE, SIZE_DATA, CALORIES } from './constants.js';
 import { db, Store, ExternalApp } from './store.js';
 import { Calc } from './logic.js';
-import { UI, currentState, updateBeerSelectOptions, refreshUI, toggleModal } from './ui.js';
+// 【変更】currentState を削除し StateManager をインポート
+import { UI, StateManager, updateBeerSelectOptions, refreshUI, toggleModal } from './ui.js';
 // Day.js をCDNからインポート
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
@@ -333,7 +334,7 @@ const bulkDeleteLogs = async (ids) => {
         await db.logs.bulkDelete(ids);
         UI.showMessage(`${ids.length}件削除しました`, 'success');
         
-        UI.toggleEditMode();
+        UI.toggleEditMode(); // StateManager経由でtoggleEditModeを呼ぶ(UI.js側で実装済み)
         await refreshUI();
     } catch (e) {
         console.error(e);
@@ -550,7 +551,8 @@ const updTm = (st) => {
 
 const timerControl = {
     start: () => {
-        if (currentState.timerId) return;
+        // StateManagerを使用
+        if (StateManager.timerId) return;
         let st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
         if (!st) {
             st = Date.now();
@@ -571,15 +573,17 @@ const timerControl = {
         document.getElementById('timer-status').className = 'text-xs text-green-600 font-bold mb-1 animate-pulse';
         
         updTm(st);
-        currentState.timerId = setInterval(() => updTm(st), 1000);
+        // StateManagerを使用
+        StateManager.setTimerId(setInterval(() => updTm(st), 1000));
     },
     stop: async () => {
         const st = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_START) || '0', 10);
         if (!st) return;
         
-        if (currentState.timerId) {
-            clearInterval(currentState.timerId);
-            currentState.timerId = null;
+        // StateManagerを使用
+        if (StateManager.timerId) {
+            clearInterval(StateManager.timerId);
+            StateManager.setTimerId(null);
         }
         
         const m = Math.round((Date.now() - st) / 60000);
@@ -633,7 +637,7 @@ function bindEvents() {
 
     document.getElementById('chart-filters')?.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
-            currentState.chartRange = e.target.dataset.range;
+            StateManager.setChartRange(e.target.dataset.range); // StateManagerを使用
             refreshUI();
         }
     });
@@ -756,13 +760,14 @@ function bindEvents() {
 
     // 【追加】ヒートマップ期間移動イベント (安全対策済み)
     document.getElementById('heatmap-prev')?.addEventListener('click', () => {
-        currentState.heatmapOffset++;
+        StateManager.incrementHeatmapOffset(); // StateManagerを使用
         refreshUI();
     });
 
     document.getElementById('heatmap-next')?.addEventListener('click', () => {
-        if (currentState.heatmapOffset > 0) {
-            currentState.heatmapOffset--;
+        // StateManagerを使用
+        if (StateManager.heatmapOffset > 0) {
+            StateManager.decrementHeatmapOffset();
             refreshUI();
         }
     });
