@@ -690,8 +690,8 @@ function renderChart(logs, checks) {
                         grid: { drawOnChartArea: false },
                         title: { display: true, text: '体重 (kg)', color: textColor },
                         ticks: { color: textColor },
-                        suggestMin: 50,
-                        suggestMax: 100
+                        suggestedMin: 50,
+                        suggestedMax: 100
                     }
                 }, 
                 plugins: { 
@@ -1517,4 +1517,5 @@ export const refreshUI = async () => {
 
     // 5. ヒートマップ描画
     renderHeatmap(checks, logs);
+
 };
