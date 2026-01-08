@@ -1,4 +1,4 @@
-import { APP, EXERCISE, SIZE_DATA } from './constants.js';
+import { APP, EXERCISE, SIZE_DATA, CALORIES } from './constants.js';
 import { db, Store, ExternalApp } from './store.js';
 import { Calc } from './logic.js';
 import { UI, StateManager, updateBeerSelectOptions, refreshUI, toggleModal } from './ui.js';
@@ -938,7 +938,7 @@ function bindEvents() {
     document.getElementById('pause-stepper-btn')?.addEventListener('click', timerControl.pause);
     document.getElementById('resume-stepper-btn')?.addEventListener('click', timerControl.resume);
     document.getElementById('stop-stepper-btn')?.addEventListener('click', timerControl.stop);
-    document.getElementById('manual-record-btn')?.addEventListener('click', UI.openManualInput);
+    document.getElementById('manual-record-btn')?.addEventListener('click', () => UI.openManualInput());
     
     document.getElementById('btn-open-beer')?.addEventListener('click', () => {
         editingLogId = null;
@@ -1129,22 +1129,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     bindEvents();
     
-    // 【重要】起動時にデータ形式移行を実行
     await migrateData();
 
+    // 運動プルダウンの生成
     const exSelect = document.getElementById('exercise-select'); 
     if (exSelect) {
         Object.keys(EXERCISE).forEach(k => { 
             const o = document.createElement('option'); 
-            o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; exSelect.appendChild(o); 
+            o.value = k; 
+            o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; 
+            exSelect.appendChild(o); 
         });
         exSelect.value = Store.getDefaultRecordExercise();
     }
     
+    // 設定モーダルの運動プルダウン生成
     const settingExSelect = document.getElementById('setting-base-exercise');
     if (settingExSelect) {
         settingExSelect.innerHTML = '';
-        Object.keys(EXERCISE).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; settingExSelect.appendChild(o); });
+        Object.keys(EXERCISE).forEach(k => { 
+            const o = document.createElement('option'); 
+            o.value = k; 
+            o.textContent = `${EXERCISE[k].icon} ${EXERCISE[k].label}`; 
+            settingExSelect.appendChild(o); 
+        });
     }
     const settingDefExSelect = document.getElementById('setting-default-record-exercise');
     if (settingDefExSelect) {
@@ -1157,14 +1165,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // 【追加】設定モーダルの換算基準プルダウン生成 (これが抜けていました)
+    const populateModeSelect = (id) => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.innerHTML = '';
+        Object.keys(CALORIES.STYLES).forEach(k => {
+            const o = document.createElement('option');
+            o.value = k;
+            o.textContent = k;
+            el.appendChild(o);
+        });
+    };
+    populateModeSelect('setting-mode-1');
+    populateModeSelect('setting-mode-2');
+
+    // ビールサイズプルダウン生成
     const zs = document.getElementById('beer-size'); 
     if (zs) {
         Object.keys(SIZE_DATA).forEach(k => { 
-            const o = document.createElement('option'); o.value = k; o.textContent = SIZE_DATA[k].label; 
-            if(k === '350') o.selected = true; zs.appendChild(o); 
+            const o = document.createElement('option'); 
+            o.value = k; 
+            o.textContent = SIZE_DATA[k].label; 
+            if(k === '350') o.selected = true; 
+            zs.appendChild(o); 
         });
     }
 
+    // プロフィール設定の反映
     const p = Store.getProfile();
     const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
     setVal('weight-input', p.weight);
@@ -1178,6 +1206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     UI.setBeerMode('mode1');
     updateBeerSelectOptions(); 
     
+    // タイマー状態などの復元
     const isRestored = timerControl.restoreState();
     if(isRestored) { 
         UI.switchTab('tab-record'); 

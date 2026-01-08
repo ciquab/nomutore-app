@@ -42,6 +42,10 @@ export const Calc = {
         }
         return kcal;
     },
+    
+    stepperEq: (kcal) => {
+        return Calc.convertKcalToMinutes(kcal, 'stepper');
+    },
 
     // 【修正】タンク表示用データ生成 (カロリーベースに変更)
     getTankDisplayData: (currentKcalBalance, currentBeerMode) => {

@@ -1329,7 +1329,7 @@ function renderHeatmap(checks, logs) {
 
     // オフセットに基づく表示月の計算
     const offsetMonth = StateManager.heatmapOffset; 
-    const baseDate = dayjs().add(offsetMonth, 'month');
+    const baseDate = dayjs().subtract(offsetMonth, 'month');
     const startOfMonth = baseDate.startOf('month');
     const daysInMonth = baseDate.daysInMonth();
     
