@@ -510,9 +510,7 @@ const handleDetailShare = async () => {
         
         text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExData.label}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
-        // 運動
-        // 1. 運動データ取得（なければステッパー）
-       let exKey = log.exerciseKey;
+        let exKey = log.exerciseKey;
 if (!exKey) {
     const entry = Object.entries(EXERCISE)
         .find(([k, v]) => log.name?.includes(v.label));
@@ -520,26 +518,25 @@ if (!exKey) {
 }
 const exData = EXERCISE[exKey] || EXERCISE['stepper'];
 
-// 2. 実時間の復元
-// kcalがある場合はそれを信頼し、なければ旧minutesから計算
-const totalKcal = (log.kcal !== undefined) 
-    ? log.kcal 
-    : (log.minutes * Calc.burnRate(EXERCISE['stepper'].mets));
+// 実時間
+const rawMinutes = log.rawMinutes || log.minutes || 0;
 
-// カロリー ÷ その運動の消費率 ＝ 実時間
-const rawMinutes = log.rawMinutes || Math.round(totalKcal / Calc.burnRate(exData.mets));
-        
-        // 【修正】ユーザーが設定している「モード1（ビールなど）」換算で表示する仕様に戻す
-        const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || '国産ピルスナー';
-        const earnedMins = Calc.convertKcalToMinutes(earnedKcal, mode1); // モード1基準で計算
-        
-        const exName = log.name.split(' ')[1] || log.name; 
-        
-        text = `🏃‍♀️ 運動しました: ${exName} (${rawMins}分) | 借金返済: ${mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
+// 消費kcal（logic.js に一本化）
+const earnedKcal = log.kcal !== undefined
+    ? log.kcal
+    : Calc.calculateExerciseKcal(rawMinutes, exKey);
+
+// 表示用換算
+const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || 'stepper';
+const earnedMins = Calc.convertKcalToMinutes(earnedKcal, mode1);
+
+const exName = log.name.split(' ')[1] || log.name;
+
+text = `🏃‍♀️ 運動しました: ${exName} (${rawMinutes}分) | 借金返済: ${mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ`;
     }
 
     shareToSocial(text);
-};
+};す
 
 const shareToSocial = async (text) => {
     if (navigator.share) {
@@ -1297,3 +1294,4 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
