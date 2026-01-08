@@ -285,7 +285,15 @@ const handleBeerSubmit = async (e) => {
         rawAmount: saveRawAmount
     };
 
+    let oldTimestamp = null;
+
     if (editingLogId) {
+        // ★追加: 更新を実行する前に、現在のDBから古いデータを取得して日付を保存
+        const oldLog = await db.logs.get(editingLogId);
+        if (oldLog) {
+            oldTimestamp = oldLog.timestamp;
+        }
+
         await db.logs.update(editingLogId, logData);
         UI.showMessage('記録を更新しました', 'success');
         editingLogId = null;
@@ -304,7 +312,15 @@ const handleBeerSubmit = async (e) => {
     }
     // ▲▲▲ 追加修正ここまで ▲▲▲
 
+    // 1. 今回記録した日付（今日など）の運動ボーナスを再計算（これは既存のまま）
     await recalcDailyExercises(ts);
+
+    // ★追加: もし日付を変更していた場合（昨日→今日など）、変更元の日付（昨日）も再計算する
+    // （昨日の飲酒記録が消えたことで、昨日の運動ボーナスが復活する可能性があるため）
+    if (oldTimestamp && !Calc.isSameDay(oldTimestamp, ts)) {
+        await recalcDailyExercises(oldTimestamp);
+    }
+
     toggleModal('beer-modal', false); 
     await refreshUI();
 
@@ -495,9 +511,17 @@ const handleDetailShare = async () => {
         text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExData.label}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
         // 運動
-        const rawMins = log.rawMinutes || log.minutes; 
-        // 獲得カロリー計算
-        const earnedKcal = log.kcal !== undefined ? log.kcal : (log.minutes * Calc.burnRate(6.0));
+        // 1. 運動データ取得（なければステッパー）
+const exData = EXERCISE[exKey] || EXERCISE['stepper'];
+
+// 2. 実時間の復元
+// kcalがある場合はそれを信頼し、なければ旧minutesから計算
+const totalKcal = (log.kcal !== undefined) 
+    ? log.kcal 
+    : (log.minutes * Calc.burnRate(EXERCISE['stepper'].mets));
+
+// カロリー ÷ その運動の消費率 ＝ 実時間
+const rawMinutes = log.rawMinutes || Math.round(totalKcal / Calc.burnRate(exData.mets));
         
         // 【修正】ユーザーが設定している「モード1（ビールなど）」換算で表示する仕様に戻す
         const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || '国産ピルスナー';

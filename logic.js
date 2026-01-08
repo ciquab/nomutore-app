@@ -3,8 +3,11 @@ import { EXERCISE, CALORIES, APP, BEER_COLORS, STYLE_COLOR_MAP } from './constan
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
 export const Calc = {
-    getBMR: () => {
-        const p = Store.getProfile();
+    // 1. 引数 profile を追加
+    getBMR: (profile = null) => {
+        // profile が渡されていればそれを使い、なければ Store から取得する
+        const p = profile || Store.getProfile();
+
         const k = 1000 / 4.186;
         if(p.gender === 'male') {
             return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.4235) * k;
@@ -12,8 +15,9 @@ export const Calc = {
             return ((0.0481 * p.weight) + (0.0234 * p.height) - (0.0138 * p.age) - 0.9708) * k;
         }
     },
-    burnRate: (mets) => {
-        const bmr = Calc.getBMR();
+    // 2. 引数 profile を追加し、getBMR へ渡す
+    burnRate: (mets, profile = null) => {
+        const bmr = Calc.getBMR(profile); // ★ここを変更
         const netMets = Math.max(0, mets - 1);
         return (bmr / 24 * netMets) / 60;
     },
@@ -21,21 +25,21 @@ export const Calc = {
     // 【必須】カロリー計算関数 (new_logic.jsで欠落していたもの)
     calculateExerciseKcal: (minutes, exerciseKey) => {
         const exData = EXERCISE[exerciseKey] || EXERCISE['stepper'];
-        const rate = Calc.burnRate(exData.mets);
+        const rate = Calc.burnRate(exData.mets, null);
         return minutes * rate;
     },
 
-    // 【必須】カロリー→時間換算関数 (new_logic.jsで欠落していたもの)
-    convertKcalToMinutes: (kcal, targetExerciseKey) => {
+    // 3. 引数 profile を追加し、burnRate へ渡す (重要: グラフ等で大量に使われるため)
+    convertKcalToMinutes: (kcal, targetExerciseKey, profile = null) => {
         const exData = EXERCISE[targetExerciseKey] || EXERCISE['stepper'];
-        const rate = Calc.burnRate(exData.mets);
+        const rate = Calc.burnRate(exData.mets, profile); // ★ここを変更
         if (rate === 0) return 0;
         return Math.round(kcal / rate);
     },
 
-    // 【追加】互換性維持用ヘルパー (new_logic.jsから採用)
-    stepperEq: (kcal) => {
-        return Calc.convertKcalToMinutes(kcal, 'stepper');
+    // 4. 引数 profile を追加し、convertKcalToMinutes へ渡す
+    stepperEq: (kcal, profile = null) => {
+        return Calc.convertKcalToMinutes(kcal, 'stepper', profile); // ★ここを変更
     },
     
     calculateAlcoholKcal: (ml, abv, type) => {
@@ -48,7 +52,7 @@ export const Calc = {
     },
 
     // 【維持】カロリーベースのタンク表示ロジック (logic.jsのものを採用)
-    getTankDisplayData: (currentKcalBalance, currentBeerMode) => {
+    getTankDisplayData: (currentKcalBalance, currentBeerMode, profile = null) => { // ★引数追加
         const modes = Store.getModes();
         const targetStyle = currentBeerMode === 'mode1' ? modes.mode1 : modes.mode2;
         const unitKcal = CALORIES.STYLES[targetStyle] || 145;
@@ -64,8 +68,8 @@ export const Calc = {
         const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
         
         // カロリーから表示時間を計算
-        const displayMinutes = Calc.convertKcalToMinutes(currentKcalBalance, baseEx);
-        const displayRate = Calc.burnRate(baseExData.mets);
+        const displayMinutes = Calc.convertKcalToMinutes(currentKcalBalance, baseEx, profile);
+        const displayRate = Calc.burnRate(baseExData.mets, profile);
         
         return {
             targetStyle,

@@ -181,13 +181,15 @@ function renderLogList(logs, isAppend) {
     const labelEl = document.getElementById('history-base-label');
     if(labelEl) labelEl.textContent = `(${baseExData.icon} ${baseExData.label} 換算)`;
 
+    const userProfile = Store.getProfile();
+
     const htmlItems = logs.map(log => {
         // kcalがある場合は優先使用、なければminutes(互換)から計算
-        const kcal = log.kcal !== undefined ? log.kcal : (log.minutes * Calc.burnRate(6.0));
+        const kcal = log.kcal !== undefined ? log.kcal : (log.minutes * Calc.burnRate(6.0, userProfile));
         const isDebt = kcal < 0;
         
         // 表示用の時間を計算 (設定されている運動基準で)
-        const displayMinutes = Calc.convertKcalToMinutes(Math.abs(kcal), baseEx);
+        const displayMinutes = Calc.convertKcalToMinutes(Math.abs(kcal), baseEx, userProfile);
 
         const typeText = isDebt ? '借金' : '返済';
         const signClass = isDebt ? 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-300' : 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-300';
@@ -1510,8 +1512,15 @@ export const refreshUI = async () => {
     renderQuickButtons(logs);
     renderChart(logs, checks);
     
-    // 4. ログリストのリセット (無限スクロールの頭出し)
-    await updateLogListView(false);
+    // 4. ログリストの更新
+    if (keepScrollPosition) {
+        // 現在の表示件数分だけ再取得して描画（スクロール位置はDOMが維持される限り保たれるが、innerHTML書き換えだと飛ぶ可能性あり）
+        // 簡易的には、編集時はリセットせず、DOMの部分更新が理想ですが、
+        // 少なくとも「limitを50に戻さない」対応が必要です。
+        await updateLogListView(true); // trueなら追記モードっぽくなるが、実装次第
+    } else {
+        await updateLogListView(false);
+    }
 
     // 5. ヒートマップ描画
     renderHeatmap(checks, logs);
