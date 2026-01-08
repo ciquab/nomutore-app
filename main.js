@@ -128,6 +128,91 @@ const handleSaveSettings = () => {
     }
 };
 
+// 【新規】同日の運動ログを再計算してボーナスを整合させる関数
+const recalcDailyExercises = async (targetTs) => {
+    const targetDate = dayjs(targetTs);
+    
+    // 1. その日の全ログを取得
+    const dayStart = targetDate.startOf('day').valueOf();
+    const dayEnd = targetDate.endOf('day').valueOf();
+    const dayLogs = await db.logs.where('timestamp').between(dayStart, dayEnd, true, true).toArray();
+    
+    // 2. 運動ログだけを抽出
+    const exerciseLogs = dayLogs.filter(l => l.minutes > 0); // プラスが運動
+    if (exerciseLogs.length === 0) return; // 運動してなければ関係なし
+
+    // 3. 全期間のログとチェックを取得（ストリーク判定用）
+    const allLogs = await db.logs.toArray();
+    const allChecks = await db.checks.toArray();
+
+    // 4. 「もしこの日にお酒を飲んでいたら」ボーナスは無効 (x1.0)
+    //    飲んでいなければ、過去のストリークに基づいた倍率を適用
+    const hasAlcohol = Calc.hasAlcoholLog(allLogs, targetTs);
+    const streak = Calc.getStreakAtDate(targetTs, allLogs, allChecks);
+    
+    // 飲酒ありなら強制1.0、なしならストリーク倍率
+    const multiplier = hasAlcohol ? 1.0 : Calc.getStreakMultiplier(streak);
+
+    let updatedCount = 0;
+    let bonusLost = false;
+    let bonusGained = false;
+
+    // 5. 各運動ログを更新
+    for (const log of exerciseLogs) {
+        // 運動データ定義を取得
+        let exKey = log.exerciseKey;
+        if (!exKey) {
+            const entry = Object.entries(EXERCISE).find(([k, v]) => log.name.includes(v.label));
+            if (entry) exKey = entry[0];
+        }
+        const exData = EXERCISE[exKey] || EXERCISE['stepper']; // fallback
+
+        // 生の運動時間(rawMinutes)を使って再計算
+        const rawMinutes = log.rawMinutes || Math.round(Calc.stepperEq(log.minutes * Calc.burnRate(EXERCISE['stepper'].mets)) / Calc.burnRate(exData.mets)); // fallback calculation
+        
+        // カロリー・時間を再計算
+        const baseKcal = Calc.burnRate(exData.mets) * rawMinutes;
+        const bonusKcal = baseKcal * multiplier;
+        const newMinutes = Math.round(Calc.stepperEq(bonusKcal));
+
+        // メモの書き換え
+        let newMemo = log.memo || '';
+        const hasBonusText = newMemo.includes('Streak Bonus');
+        
+        if (multiplier > 1.0) {
+            if (!hasBonusText) {
+                newMemo = newMemo ? `${newMemo} 🔥 Streak Bonus x${multiplier}` : `🔥 Streak Bonus x${multiplier}`;
+                bonusGained = true;
+            }
+        } else {
+            if (hasBonusText) {
+                // ボーナス表記を削除
+                newMemo = newMemo.replace(/🔥 Streak Bonus x[\d.]+/g, '').trim();
+                bonusLost = true;
+            }
+        }
+
+        // 値が変わる場合のみ更新
+        if (log.minutes !== newMinutes || log.memo !== newMemo) {
+            await db.logs.update(log.id, {
+                minutes: newMinutes,
+                memo: newMemo
+            });
+            updatedCount++;
+        }
+    }
+
+    // 6. ユーザーへの通知
+    if (updatedCount > 0) {
+        if (bonusLost) {
+            UI.showMessage('飲酒により、本日の運動ボーナスが\n無効になりました... 😭', 'error');
+        } else if (bonusGained) {
+            UI.showMessage('飲酒記録が消えたため\n運動ボーナスが復活しました！ 🔥', 'success');
+        }
+    }
+};
+
+// 【修正】飲酒ログ登録・更新ハンドラ
 const handleBeerSubmit = async (e) => {
     e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
@@ -156,7 +241,6 @@ const handleBeerSubmit = async (e) => {
         const ml = parseFloat(document.getElementById('custom-amount').value);
         const type = document.querySelector('input[name="customType"]:checked').value;
 
-        // 【修正】マイナス値や0をブロック
         if (isNaN(abv) || isNaN(ml) || abv < 0 || ml <= 0) {
             return UI.showMessage('正しい数値を入力してください', 'error');
         }
@@ -179,7 +263,6 @@ const handleBeerSubmit = async (e) => {
         const c = parseFloat(document.getElementById('beer-count').value);
         const userAbv = parseFloat(document.getElementById('preset-abv').value);
 
-        // 【修正】マイナス値や0をブロック
         if (!s || !z || !c || c <= 0 || isNaN(userAbv) || userAbv < 0) {
             return UI.showMessage('正しい数値を入力してください', 'error');
         }
@@ -209,13 +292,13 @@ const handleBeerSubmit = async (e) => {
         minutes: -Math.round(min), 
         timestamp: ts, 
         brewery: brewery, 
-        brand: brand,
-        rating: rating,
+        brand: brand, 
+        rating: rating, 
         memo: memo,
-        count: saveCount,
-        abv: saveAbv,
-        isCustom: saveIsCustom,
-        customType: saveCustomType,
+        count: saveCount, 
+        abv: saveAbv, 
+        isCustom: saveIsCustom, 
+        customType: saveCustomType, 
         rawAmount: saveRawAmount
     };
 
@@ -228,6 +311,9 @@ const handleBeerSubmit = async (e) => {
         UI.showMessage('飲酒を記録しました 🍺', 'success'); 
     }
     
+    // 【重要】飲酒記録後、同日の運動ボーナスを再評価する
+    await recalcDailyExercises(ts);
+    
     toggleModal('beer-modal', false); 
     await refreshUI();
 
@@ -238,7 +324,7 @@ const handleBeerSubmit = async (e) => {
     document.getElementById('beer-memo').value = '';
     document.getElementById('untappd-check').checked = false;
     document.getElementById('beer-count').value = '';
-    // カスタム入力欄もリセットしておくと親切
+    
     if(document.getElementById('custom-abv')) document.getElementById('custom-abv').value = '';
     if(document.getElementById('custom-amount')) document.getElementById('custom-amount').value = '';
 
@@ -321,22 +407,47 @@ const handleCheckSubmit = async (e) => {
 
 const deleteLog = async (id) => {
     if (!confirm('削除しますか？')) return;
+    
+    // 【修正】削除前にログの日付とタイプを取得しておく
+    const targetLog = await db.logs.get(id);
+    const targetTs = targetLog ? targetLog.timestamp : null;
+    const isAlcohol = targetLog && targetLog.minutes < 0;
+
     await db.logs.delete(id);
     UI.showMessage('削除しました', 'success');
+
+    // 【追加】飲酒ログを削除した場合、その日の運動ボーナスが復活する可能性があるため再計算
+    if (targetLog && isAlcohol) {
+        await recalcDailyExercises(targetTs);
+    }
+
     await refreshUI();
 };
 
 // 一括削除ロジック
 const bulkDeleteLogs = async (ids) => {
     if (!ids || ids.length === 0) return;
-    
     if (!confirm(`${ids.length}件のデータを削除しますか？\nこの操作は取り消せません。`)) return;
     
     try {
+        // 【修正】一括削除の際も、影響を受ける日付をリストアップ
+        const logsToDelete = await db.logs.where('id').anyOf(ids).toArray();
+        const affectedDates = new Set();
+        logsToDelete.forEach(l => {
+            if (l.minutes < 0) { // 飲酒ログが含まれていたら
+                affectedDates.add(dayjs(l.timestamp).format('YYYY-MM-DD'));
+            }
+        });
+
         await db.logs.bulkDelete(ids);
         UI.showMessage(`${ids.length}件削除しました`, 'success');
         
-        UI.toggleEditMode(); // StateManager経由でtoggleEditModeを呼ぶ(UI.js側で実装済み)
+        // 【追加】影響を受ける各日付で再計算
+        for (const dateStr of affectedDates) {
+            await recalcDailyExercises(dayjs(dateStr).valueOf());
+        }
+
+        UI.toggleEditMode(); 
         await refreshUI();
     } catch (e) {
         console.error(e);
