@@ -460,29 +460,36 @@ const bulkDeleteLogs = async (ids) => {
 const handleShare = async () => {
     const logs = await db.logs.toArray();
     const checks = await db.checks.toArray();
+
     const gradeData = Calc.getRecentGrade(checks, logs);
     const streak = Calc.getCurrentStreak(logs, checks);
-    
-    // 【修正】カロリー収支から分換算を計算して表示
-    // kcalフィールドがない古いデータへの考慮: kcalがあればそれを使う、なければminutesから計算
+
     const baseEx = Store.getBaseExercise();
-    const stepperMets = EXERCISE['stepper'].mets;
-    const stepperRate = Calc.burnRate(stepperMets);
+    const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
 
     const totalKcal = logs.reduce((sum, l) => {
         if (l.kcal !== undefined) return sum + l.kcal;
-        // fallback for old data (minutes * stepperRate)
-        return sum + (l.minutes * stepperRate);
+        return sum + (l.minutes * Calc.burnRate(6.0));
     }, 0);
 
-    const balanceMinutes = Calc.convertKcalToMinutes(totalKcal, baseEx);
-    const balanceText = balanceMinutes >= 0 ? `+${balanceMinutes}分` : `${balanceMinutes}分`;
-    const balanceStatus = balanceMinutes >= 0 ? '貯金' : '借金';
+    const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || APP.DEFAULTS.MODE1;
+    const beerCount = Calc.convertKcalToBeerCount(Math.abs(totalKcal), mode1);
+    const beerIcon = STYLE_METADATA[mode1]?.icon || '🍺';
 
-    // 基準運動のアイコンを取得
-    const exIcon = EXERCISE[baseEx] ? EXERCISE[baseEx].icon : '🏃‍♀️';
+    const balanceMinutes = Calc.convertKcalToMinutes(Math.abs(totalKcal), baseEx);
 
-    const text = `現在: ${gradeData.label} (${gradeData.rank}) | 連続: ${streak}日🔥 | ${balanceStatus}: ${balanceText} (${exIcon}換算) | 飲んだら動く！健康管理アプリ #ノムトレ`;
+    const statusText = totalKcal >= 0
+        ? `貯金: ${mode1}${beerCount}本分を返済！${beerIcon}`
+        : `借金: ${mode1}${beerCount}本分が残ってます…${beerIcon}`;
+
+    const minuteText = `${baseExData.label}${balanceMinutes}分換算`;
+
+    const text = `現在: ${gradeData.label} (${gradeData.rank})
+| 連続: ${streak}日🔥
+| ${statusText}
+（${minuteText}）
+#ノムトレ #飲んだら動く`;
+
     shareToSocial(text);
 };
 
@@ -498,41 +505,49 @@ const handleDetailShare = async () => {
     const baseEx = Store.getBaseExercise();
     const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
     
-    // kcal基準で判定 (古いデータ互換対応)
+    // kcal基準で判定（互換対応）
     const isDebt = log.kcal !== undefined ? log.kcal < 0 : log.minutes < 0;
     
     if (isDebt) {
-        // 借金
-        const kcalVal = log.kcal !== undefined ? Math.abs(log.kcal) : Math.abs(log.minutes * Calc.burnRate(6.0));
+        // --- 飲酒 ---
+        const kcalVal = log.kcal !== undefined
+            ? Math.abs(log.kcal)
+            : Math.abs(log.minutes * Calc.burnRate(6.0));
+
         const debtMins = Calc.convertKcalToMinutes(kcalVal, baseEx);
-        const beerName = log.brand ? `${log.brand}` : (log.style || 'ビール');
+        const beerName = log.brand || log.style || 'ビール';
         const star = log.rating > 0 ? '★'.repeat(log.rating) : '';
         
-        text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExData.label}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
+        text = `🍺 飲みました: ${beerName}
+| 借金発生: ${baseExData.label}換算で${debtMins}分…😱 ${star}
+#ノムトレ`;
     } else {
+        // --- 運動 ---
         let exKey = log.exerciseKey;
-if (!exKey) {
-    const entry = Object.entries(EXERCISE)
-        .find(([k, v]) => log.name?.includes(v.label));
-    if (entry) exKey = entry[0];
-}
-const exData = EXERCISE[exKey] || EXERCISE['stepper'];
 
-// 実時間
-const rawMinutes = log.rawMinutes || log.minutes || 0;
+        // 旧データ救済
+        if (!exKey) {
+            const entry = Object.entries(EXERCISE)
+                .find(([_, v]) => log.name?.includes(v.label));
+            if (entry) exKey = entry[0];
+        }
 
-// 消費kcal（logic.jsに一本化）
-const earnedKcal = log.kcal !== undefined
-    ? log.kcal
-    : Calc.calculateExerciseKcal(rawMinutes, exKey);
+        const exData = EXERCISE[exKey] || EXERCISE['stepper'];
+        const exLabel = exData.label || log.name || '運動';
 
-// 表示用換算
-const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || 'stepper';
-const earnedMins = Calc.convertKcalToMinutes(earnedKcal, mode1);
+        const rawMinutes = log.rawMinutes || log.minutes || 0;
 
-const exName = log.name.split(' ')[1] || log.name;
+        const earnedKcal = log.kcal !== undefined
+            ? log.kcal
+            : Calc.calculateExerciseKcal(rawMinutes, exKey);
 
-text = `🏃‍♀️ 運動しました: ${exName} (${rawMinutes}分) | 借金返済: ${mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ`;
+        const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || APP.DEFAULTS.MODE1;
+        const beerCount = Calc.convertKcalToBeerCount(earnedKcal, mode1);
+        const beerIcon = STYLE_METADATA[mode1]?.icon || '🍺';
+
+        text = `🏃‍♀️ 運動しました: ${exLabel}（${rawMinutes}分）
+| 借金返済: ${mode1}（350ml）${beerCount}本分を返済！${beerIcon}
+#ノムトレ #飲んだら動く`;
     }
 
     shareToSocial(text);
@@ -1294,6 +1309,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
 
 
