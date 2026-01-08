@@ -6,7 +6,8 @@ export const APP = {
         HEIGHT: 'hazy_payback_height', 
         AGE: 'hazy_payback_age', 
         GENDER: 'hazy_payback_gender', 
-        TIMER_START: 'hazy_payback_timer_start', 
+        TIMER_START: 'hazy_payback_timer_start',
+        TIMER_ACCUMULATED: 'hazy_payback_timer_accumulated', // 【追加】一時停止用 
         MODE1: 'hazy_payback_mode_1', 
         MODE2: 'hazy_payback_mode_2',
         BASE_EXERCISE: 'hazy_payback_base_exercise',

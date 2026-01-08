@@ -29,6 +29,7 @@
                     animation: {
                         'wave': 'wave 2s infinite linear',
                         'bubble': 'bubble 2s infinite ease-in',
+                        'bounce-horizontal': 'swipe 1.5s infinite ease-in-out',
                     },
                     keyframes: {
                         wave: {
@@ -39,6 +40,10 @@
                             '0%': { bottom: '-10%', opacity: '0' },
                             '50%': { opacity: '1' },
                             '100%': { bottom: '110%', opacity: '0' },
+                        },
+                        swipe: {
+                            '0%, 100%': { transform: 'translateX(-20%)' },
+                            '50%': { transform: 'translateX(20%)' }
                         }
                     }
                 }
@@ -222,10 +227,15 @@
                         <p id="timer-status" class="text-xs text-gray-400 mt-1 font-medium">READY</p>
                     </div>
                     <div class="flex justify-center w-full gap-3">
-                        <button id="start-stepper-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-green-200 dark:shadow-none shadow-lg transition transform active:scale-95 text-lg">START</button>
-                        <button id="manual-record-btn" class="flex-1 bg-white dark:bg-gray-700 border-2 border-green-500 text-green-600 dark:text-green-400 font-bold py-3.5 rounded-xl shadow-sm transition transform active:scale-95 text-lg">手入力</button>
-                        <button id="stop-stepper-btn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-red-200 dark:shadow-none shadow-lg transition transform active:scale-95 hidden text-lg animate-pulse">STOP & SAVE</button>
-                    </div>
+    <button id="start-stepper-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-green-200 dark:shadow-none shadow-lg transition transform active:scale-95 text-lg">START</button>
+    <button id="manual-record-btn" class="flex-1 bg-white dark:bg-gray-700 border-2 border-green-500 text-green-600 dark:text-green-400 font-bold py-3.5 rounded-xl shadow-sm transition transform active:scale-95 text-lg">手入力</button>
+    
+    <button id="pause-stepper-btn" class="hidden flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl shadow-yellow-200 dark:shadow-none shadow-lg transition transform active:scale-95 text-lg">PAUSE</button>
+    
+    <button id="resume-stepper-btn" class="hidden flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-green-200 dark:shadow-none shadow-lg transition transform active:scale-95 text-lg">RESUME</button>
+
+    <button id="stop-stepper-btn" class="hidden flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl shadow-red-200 dark:shadow-none shadow-lg transition transform active:scale-95 text-lg animate-pulse">STOP & SAVE</button>
+</div>
                 </div>
 
                 <div id="quick-input-area" class="flex gap-2 mb-2 px-1"></div>
@@ -625,13 +635,13 @@
 
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">左ボタン (標準)</label>
+                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">換算基準 1 (メイン)</label>
                             <div class="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
                                 <select id="setting-mode-1" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md text-xs font-bold text-gray-800 dark:text-white"></select>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">右ボタン (比較)</label>
+                            <label class="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">換算基準 2 (サブ)</label>
                             <div class="bg-gray-50 dark:bg-gray-700 p-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
                                 <select id="setting-mode-2" class="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md text-xs font-bold text-gray-800 dark:text-white"></select>
                             </div>
@@ -822,6 +832,15 @@
             
             <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <button class="w-full bg-gray-800 dark:bg-gray-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm btn-close-modal hover:bg-gray-900 transition active:scale-95">閉じる</button>
+            </div>
+        </div>
+    </div>
+    <div id="swipe-coach-mark" class="fixed inset-0 z-[80] bg-black/60 hidden flex-col items-center justify-center pointer-events-none transition-opacity duration-500 opacity-0">
+        <div class="relative w-64 h-64 flex items-center justify-center">
+            <div class="text-6xl animate-bounce-horizontal filter drop-shadow-lg">👆</div>
+            <div class="absolute inset-0 border-2 border-dashed border-white/30 rounded-3xl"></div>
+            <div class="absolute bottom-10 w-full text-center">
+                <p class="text-white font-bold text-lg drop-shadow-md">左右にスワイプして<br>画面を切り替え</p>
             </div>
         </div>
     </div>

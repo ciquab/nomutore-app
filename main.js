@@ -696,62 +696,163 @@ const DataManager = {
     }
 };
 
-const updTm = (st) => { 
-    const e = Date.now() - st; 
-    const mm = Math.floor(e/60000).toString().padStart(2,'0');
-    const ss = Math.floor((e%60000)/1000).toString().padStart(2,'0');
+// 【修正】経過時間を表示する関数（累積時間を考慮）
+const updTm = () => { 
+    const stStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
+    const accStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
+    
+    let totalMs = 0;
+    
+    // 累積時間（一時停止前の時間）
+    if (accStr) totalMs += parseInt(accStr, 10);
+    
+    // 現在進行中の時間
+    if (stStr) {
+        totalMs += (Date.now() - parseInt(stStr, 10));
+    }
+
+    const mm = Math.floor(totalMs / 60000).toString().padStart(2, '0');
+    const ss = Math.floor((totalMs % 60000) / 1000).toString().padStart(2, '0');
+    
     const display = document.getElementById('timer-display');
     if(display) display.textContent = `${mm}:${ss}`;
 };
 
+// 【修正】タイマー制御ロジック（一時停止対応版）
 const timerControl = {
+    // 計測開始
     start: () => {
-        // StateManagerを使用
         if (StateManager.timerId) return;
-        let st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
-        if (!st) {
-            st = Date.now();
-            try { localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, st); } catch (err) { console.error(err); }
-        } else {
-            st = parseInt(st, 10);
-            const elapsed = Date.now() - st;
-            if (elapsed > ONE_DAY_MS) {
-                localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
-                UI.showMessage('途中で中断された計測をリセットしました', 'error');
-                return;
-            }
-        }
         
-        document.getElementById('start-stepper-btn').classList.add('hidden');
-        document.getElementById('stop-stepper-btn').classList.remove('hidden');
-        document.getElementById('timer-status').textContent = '計測中...';
-        document.getElementById('timer-status').className = 'text-xs text-green-600 font-bold mb-1 animate-pulse';
+        // 開始時刻を保存
+        localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, Date.now());
         
-        updTm(st);
-        // StateManagerを使用
-        StateManager.setTimerId(setInterval(() => updTm(st), 1000));
+        // UI更新
+        timerControl.updateButtons('running');
+        
+        // タイマー始動
+        updTm();
+        StateManager.setTimerId(setInterval(updTm, 1000));
     },
-    stop: async () => {
-        const st = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_START) || '0', 10);
-        if (!st) return;
-        
-        // StateManagerを使用
+
+    // 一時停止
+    pause: () => {
         if (StateManager.timerId) {
             clearInterval(StateManager.timerId);
             StateManager.setTimerId(null);
         }
+
+        const stStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
+        if (stStr) {
+            const currentSession = Date.now() - parseInt(stStr, 10);
+            const prevAcc = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED) || '0', 10);
+            
+            // 累積時間に加算して保存
+            localStorage.setItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED, prevAcc + currentSession);
+            // 開始時刻はクリア
+            localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
+        }
+
+        timerControl.updateButtons('paused');
+        updTm(); // 表示を確定
+    },
+
+    // 再開
+    resume: () => {
+        if (StateManager.timerId) return;
+
+        // 新しいセッション開始時刻を保存
+        localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, Date.now());
         
-        const m = Math.round((Date.now() - st) / 60000);
+        timerControl.updateButtons('running');
+        
+        updTm();
+        StateManager.setTimerId(setInterval(updTm, 1000));
+    },
+
+    // 終了して保存
+    stop: async () => {
+        // まず一時停止処理を行って全時間をACCUMULATEDに集約
+        timerControl.pause();
+
+        const totalMs = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED) || '0', 10);
+        const m = Math.round(totalMs / 60000);
+
+        // データクリア
         localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
-        
-        document.getElementById('start-stepper-btn').classList.remove('hidden');
-        document.getElementById('stop-stepper-btn').classList.add('hidden');
+        localStorage.removeItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
+
+        // UIリセット
+        timerControl.updateButtons('initial');
         document.getElementById('timer-display').textContent = '00:00';
-        document.getElementById('timer-status').textContent = 'READY';
-        document.getElementById('timer-status').className = 'text-xs text-gray-400 mt-1 font-medium';
-        
-        if (m > 0) await recordExercise(document.getElementById('exercise-select').value, m);
-        else UI.showMessage('1分未満のため記録せず','error');
+
+        if (m > 0) {
+            await recordExercise(document.getElementById('exercise-select').value, m);
+        } else {
+            UI.showMessage('1分未満のため記録せず', 'error');
+        }
+    },
+
+    // UI状態管理
+    updateButtons: (state) => {
+        const startBtn = document.getElementById('start-stepper-btn');
+        const manualBtn = document.getElementById('manual-record-btn');
+        const pauseBtn = document.getElementById('pause-stepper-btn');
+        const resumeBtn = document.getElementById('resume-stepper-btn');
+        const stopBtn = document.getElementById('stop-stepper-btn');
+        const statusText = document.getElementById('timer-status');
+
+        // 全て隠す
+        [startBtn, manualBtn, pauseBtn, resumeBtn, stopBtn].forEach(el => el?.classList.add('hidden'));
+
+        if (state === 'running') {
+            pauseBtn?.classList.remove('hidden');
+            stopBtn?.classList.remove('hidden');
+            if(statusText) {
+                statusText.textContent = '計測中...';
+                statusText.className = 'text-xs text-green-600 font-bold mb-1 animate-pulse';
+            }
+        } else if (state === 'paused') {
+            resumeBtn?.classList.remove('hidden');
+            stopBtn?.classList.remove('hidden');
+            if(statusText) {
+                statusText.textContent = '一時停止中';
+                statusText.className = 'text-xs text-yellow-500 font-bold mb-1';
+            }
+        } else { // initial
+            startBtn?.classList.remove('hidden');
+            manualBtn?.classList.remove('hidden');
+            if(statusText) {
+                statusText.textContent = 'READY';
+                statusText.className = 'text-xs text-gray-400 mt-1 font-medium';
+            }
+        }
+    },
+    
+    // アプリ起動時の状態復元
+    restoreState: () => {
+        const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
+        const acc = localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
+
+        if (st) {
+            // 計測中だった場合
+            // 24時間以上経過していたらリセット
+            const elapsed = Date.now() - parseInt(st, 10);
+            if (elapsed > ONE_DAY_MS) {
+                localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
+                localStorage.removeItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
+                UI.showMessage('中断された古い計測をリセットしました', 'error');
+                return false;
+            }
+            timerControl.start();
+            return true;
+        } else if (acc) {
+            // 一時停止中だった場合
+            timerControl.updateButtons('paused');
+            updTm();
+            return true;
+        }
+        return false;
     }
 };
 
@@ -767,6 +868,28 @@ async function migrateData() {
         localStorage.removeItem(APP.STORAGE_KEYS.CHECKS);
     }
 }
+
+const showSwipeCoachMark = () => {
+    const KEY = 'nomutore_seen_swipe_hint';
+    if (localStorage.getItem(KEY)) return;
+
+    const el = document.getElementById('swipe-coach-mark');
+    if (!el) return;
+
+    // 表示
+    el.classList.remove('hidden');
+    // フェードイン
+    requestAnimationFrame(() => el.classList.remove('opacity-0'));
+
+    // 3.5秒後に消す
+    setTimeout(() => {
+        el.classList.add('opacity-0');
+        setTimeout(() => {
+            el.classList.add('hidden');
+            localStorage.setItem(KEY, 'true');
+        }, 500);
+    }, 3500);
+};
 
 // -----------------------------------------------------
 // Init & Event Bindings
@@ -841,6 +964,8 @@ function bindEvents() {
     });
 
     document.getElementById('start-stepper-btn')?.addEventListener('click', timerControl.start);
+    document.getElementById('pause-stepper-btn')?.addEventListener('click', timerControl.pause);
+    document.getElementById('resume-stepper-btn')?.addEventListener('click', timerControl.resume);
     document.getElementById('stop-stepper-btn')?.addEventListener('click', timerControl.stop);
     document.getElementById('manual-record-btn')?.addEventListener('click', UI.openManualInput);
     
@@ -1103,9 +1228,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     UI.setBeerMode('mode1');
     updateBeerSelectOptions(); 
     
-    const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
-    if(st) { 
-        timerControl.start(); 
+    // 【修正】新しい復元ロジックを使用
+    const isRestored = timerControl.restoreState();
+    if(isRestored) { 
         UI.switchTab('tab-record'); 
     } else { 
         UI.switchTab('tab-home'); 
@@ -1113,11 +1238,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 【追加】初回ユーザー判定 & 設定画面オートオープン
         // localStorageに身長・体重のキーがまだない場合、初回とみなす
         if (!localStorage.getItem(APP.STORAGE_KEYS.WEIGHT)) {
-            // 少し遅らせて表示（画面描画が落ち着いてから）
+            // 初回ユーザー設定
             setTimeout(() => {
                 UI.openSettings();
                 UI.showMessage('👋 ようこそ！まずはプロフィールと\n基準にする運動を設定しましょう！', 'success');
             }, 800);
+        } else {
+            // 【追加】既存ユーザー、かつ設定済みならコーチマークを表示
+            setTimeout(() => {
+                showSwipeCoachMark();
+            }, 1000);
         }
     }
 

@@ -950,8 +950,22 @@ function renderLogList(logs) {
     const list = DOM.elements['log-list'];
     if (!list) return;
 
+    // 【修正】データがない場合のエンプティステート
     if (logs.length === 0) { 
-        list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 p-4 text-center">まだ記録がありません。</p>'; 
+        list.innerHTML = `
+            <div class="text-center py-10 px-4">
+                <div class="text-6xl mb-4 opacity-80">🍻</div>
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2">まだ記録がありません</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                    飲んだお酒を記録すると、<br>
+                    借金（運動ノルマ）が発生します。<br>
+                    まずは最初の一杯を記録してみましょう！
+                </p>
+                <button onclick="document.getElementById('btn-open-beer').click()" class="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 font-bold py-3 px-6 rounded-xl text-sm border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition">
+                    👉 飲酒を記録する
+                </button>
+            </div>
+        `; 
         return; 
     }
     
@@ -1065,26 +1079,26 @@ function renderBeerTank(currentBalance) {
             minText.innerHTML = `+${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-gray-400">(${baseExData.icon})</span>`;
             
             if (canCount < 0.5) { msgText.textContent = 'まだガマン… まずは0.5本分！😐'; msgText.className = 'text-sm font-bold text-gray-500 dark:text-gray-400'; }
-            else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500'; }
+            else if (canCount < 1.0) { msgText.textContent = 'あと少しで1本分！頑張れ！🤔'; msgText.className = 'text-sm font-bold text-orange-500 dark:text-orange-400'; }
             else if (canCount < 2.0) { msgText.textContent = `1本飲めるよ！(${targetStyle})🍺`; msgText.className = 'text-sm font-bold text-green-600 dark:text-green-400'; }
-            else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-400'; }
+            else { msgText.textContent = '余裕の貯金！最高だね！✨'; msgText.className = 'text-sm font-bold text-green-800 dark:text-green-300'; }
         } else {
             liquid.style.height = '0%';
             emptyIcon.style.opacity = '1';
             cansText.textContent = "0.0";
             
             minText.innerHTML = `${Math.round(displayMinutes)} min <span class="text-[10px] font-normal text-red-300">(${baseExData.icon})</span>`;
-            minText.className = 'text-sm font-bold text-red-500';
+            minText.className = 'text-sm font-bold text-red-500 dark:text-red-400';
             
             const debtCansVal = Math.abs(canCount);
 
             if (debtCansVal > 1.5) {
                 const oneCanMin = Math.round(unitKcal / displayRate);
                 msgText.textContent = `借金山積み...😱 まずは1杯分 (${oneCanMin}分) だけ返そう！`;
-                msgText.className = 'text-sm font-bold text-orange-500 animate-pulse';
+                msgText.className = 'text-sm font-bold text-orange-500 dark:text-orange-400 animate-pulse';
             } else {
                 msgText.textContent = `枯渇中... あと${debtCansVal.toFixed(1)}本分動こう😱`;
-                msgText.className = 'text-sm font-bold text-red-500 animate-pulse';
+                msgText.className = 'text-sm font-bold text-red-500 dark:text-red-400 animate-pulse';
             }
         }
     });
@@ -1103,7 +1117,18 @@ function renderLiverRank(checks, logs) {
 
     card.classList.remove('hidden');
 
-    title.className = `text-xl font-black mt-1 ${gradeData.color}`;
+    // ▼ ここから修正
+    let colorClass = gradeData.color;
+    
+    // ダークモード用にクラスを補正（600番台の色を400番台に明るくする）
+    if(colorClass.includes('text-purple-600')) colorClass += ' dark:text-purple-400';
+    if(colorClass.includes('text-indigo-600')) colorClass += ' dark:text-indigo-400';
+    if(colorClass.includes('text-green-600'))  colorClass += ' dark:text-green-400';
+    if(colorClass.includes('text-red-500'))    colorClass += ' dark:text-red-400';
+    if(colorClass.includes('text-orange-500')) colorClass += ' dark:text-orange-400'; // Rookie用
+
+    title.className = `text-xl font-black mt-1 ${colorClass}`;
+    // ▲ ここまで修正
     title.textContent = `${gradeData.rank} : ${gradeData.label}`;
     
     countEl.textContent = gradeData.current;
