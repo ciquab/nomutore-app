@@ -543,7 +543,7 @@ const handleDetailShare = async () => {
 
         const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || APP.DEFAULTS.MODE1;
         const beerCount = Calc.convertKcalToBeerCount(earnedKcal, mode1);
-        const beerIcon = STYLE_METADATA[mode1]?.icon || '🍺';
+        const beerIcon = '🍺';
 
         text = `🏃‍♀️ 運動しました: ${exLabel}（${rawMinutes}分）
 | 借金返済: ${mode1}（350ml）${beerCount}本分を返済！${beerIcon}
@@ -1309,6 +1309,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
 
 
