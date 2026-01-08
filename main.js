@@ -512,6 +512,12 @@ const handleDetailShare = async () => {
     } else {
         // 運動
         // 1. 運動データ取得（なければステッパー）
+       let exKey = log.exerciseKey;
+if (!exKey) {
+    const entry = Object.entries(EXERCISE)
+        .find(([k, v]) => log.name?.includes(v.label));
+    if (entry) exKey = entry[0];
+}
 const exData = EXERCISE[exKey] || EXERCISE['stepper'];
 
 // 2. 実時間の復元
@@ -1289,4 +1295,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
+
 }
