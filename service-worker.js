@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomutore-v60'; // 更新時はここを変更
+const CACHE_NAME = 'nomutore-v61'; // 更新時はここを変更
 
 // 1. アプリ本体のファイル（確実にキャッシュする）
 // ※外部URL(CDN)はここには含めないでください

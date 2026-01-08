@@ -84,17 +84,33 @@ export const Calc = {
     
     getDayStatus: (date, logs, checks) => {
         const targetDay = dayjs(date);
+        
+        // その日のログを抽出
         const dayLogs = logs.filter(l => targetDay.isSame(dayjs(l.timestamp), 'day'));
-        let balance = 0;
-        dayLogs.forEach(l => balance += (l.kcal || 0)); // kcalで判定
+        
+        // 飲酒があるか (kcal < 0)
+        const hasAlcohol = dayLogs.some(l => (l.kcal !== undefined ? l.kcal : l.minutes) < 0);
+        
+        // 運動があるか (kcal > 0)
+        const hasExercise = dayLogs.some(l => (l.kcal !== undefined ? l.kcal : l.minutes) > 0);
+        
+        // 休肝日チェックがあるか
         const isDryCheck = checks.some(c => c.isDryDay && targetDay.isSame(dayjs(c.timestamp), 'day'));
         
-        if (isDryCheck) return 'dry';
-        if (dayLogs.length > 0) {
-            if (balance >= 0) return 'dry'; 
-            return 'drink'; 
+        // 判定ロジック (優先順位: 休肝日 > 飲酒 > 運動のみ)
+        if (isDryCheck) {
+            return hasExercise ? 'rest_exercise' : 'rest';
         }
-        return 'unknown';
+        
+        if (hasAlcohol) {
+            return hasExercise ? 'drink_exercise' : 'drink';
+        }
+        
+        if (hasExercise) {
+            return 'exercise';
+        }
+        
+        return 'none';
     },
 
     getCurrentStreak: (logs, checks) => {

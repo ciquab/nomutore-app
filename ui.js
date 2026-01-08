@@ -1324,9 +1324,9 @@ export const updateBeerSelectOptions = () => {
 // ヒートマップ描画 (refreshUIから呼ばれる)
 function renderHeatmap(checks, logs) {
     const grid = document.getElementById('heatmap-grid');
-    const label = document.getElementById('heatmap-period-label'); // ID修正: injectHeatmapContainerで作成したIDに合わせる
-
-    // 【追加】ボタンの取得と状態更新
+    const label = document.getElementById('heatmap-period-label');
+    
+    // ページネーションボタン制御
     const prevBtn = document.getElementById('heatmap-prev');
     const nextBtn = document.getElementById('heatmap-next');
     const offset = StateManager.heatmapOffset;
@@ -1343,48 +1343,64 @@ function renderHeatmap(checks, logs) {
 
     if (!grid) return;
 
-    // オフセットに基づく表示月の計算
     const offsetMonth = StateManager.heatmapOffset; 
-    const baseDate = dayjs().subtract(offsetMonth, 'month');
+    const baseDate = dayjs().subtract(offsetMonth, 'month'); // 過去へ遡る
     const startOfMonth = baseDate.startOf('month');
     const daysInMonth = baseDate.daysInMonth();
     
     if (label) label.textContent = baseDate.format('YYYY年 M月');
 
-    // 曜日ヘッダー
     const weeks = ['日','月','火','水','木','金','土'];
     let html = '';
     weeks.forEach(w => {
         html += `<div class="text-center text-[10px] text-gray-400 font-bold py-1">${w}</div>`;
     });
 
-    // 1日の曜日までの空白セル
     const startDay = startOfMonth.day();
     for (let i = 0; i < startDay; i++) {
         html += `<div></div>`;
     }
 
-    // 日付セル生成
     for (let d = 1; d <= daysInMonth; d++) {
         const currentDay = baseDate.date(d);
         const dateStr = currentDay.format('YYYY-MM-DD');
         const isToday = currentDay.isSame(dayjs(), 'day');
         
-        // ステータス判定 (kcalベース)
+        // ステータス取得
         const status = Calc.getDayStatus(currentDay, logs, checks);
 
+        // デフォルトスタイル
         let bgClass = 'bg-gray-100 dark:bg-gray-700';
         let textClass = 'text-gray-400 dark:text-gray-500';
         let icon = '';
 
-        if (status === 'dry') {
-            bgClass = 'bg-green-100 dark:bg-green-900/40 border border-green-200 dark:border-green-800';
-            textClass = 'text-green-600 dark:text-green-400 font-bold';
-            icon = '🍵';
-        } else if (status === 'drink') {
-            bgClass = 'bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800';
-            textClass = 'text-red-500 dark:text-red-400 font-bold';
-            icon = '🍺';
+        // ステータス別スタイル適用 (index.htmlの凡例に準拠)
+        switch (status) {
+            case 'rest_exercise': // 休肝+運動 (Emerald)
+                bgClass = 'bg-emerald-500 border border-emerald-600 shadow-sm';
+                textClass = 'text-white font-bold';
+                icon = '🏃‍♀️'; // または 🍵+🏃‍♀️
+                break;
+            case 'rest': // 休肝日 (Green)
+                bgClass = 'bg-green-400 border border-green-500 shadow-sm';
+                textClass = 'text-white font-bold';
+                icon = '🍵';
+                break;
+            case 'drink_exercise': // 飲酒+運動 (Blue)
+                bgClass = 'bg-blue-400 border border-blue-500 shadow-sm';
+                textClass = 'text-white font-bold';
+                icon = '💦';
+                break;
+            case 'drink': // 飲酒のみ (Red)
+                bgClass = 'bg-red-400 border border-red-500 shadow-sm';
+                textClass = 'text-white font-bold';
+                icon = '🍺';
+                break;
+            case 'exercise': // 運動のみ (Cyan)
+                bgClass = 'bg-cyan-400 border border-cyan-500 shadow-sm';
+                textClass = 'text-white font-bold';
+                icon = '👟';
+                break;
         }
         
         if (isToday) {
