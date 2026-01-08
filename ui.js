@@ -1325,6 +1325,22 @@ export const updateBeerSelectOptions = () => {
 function renderHeatmap(checks, logs) {
     const grid = document.getElementById('heatmap-grid');
     const label = document.getElementById('heatmap-period-label'); // ID修正: injectHeatmapContainerで作成したIDに合わせる
+
+    // 【追加】ボタンの取得と状態更新
+    const prevBtn = document.getElementById('heatmap-prev');
+    const nextBtn = document.getElementById('heatmap-next');
+    const offset = StateManager.heatmapOffset;
+
+    if (nextBtn) {
+        if (offset <= 0) {
+            nextBtn.setAttribute('disabled', 'true');
+            nextBtn.classList.add('opacity-30', 'cursor-not-allowed');
+        } else {
+            nextBtn.removeAttribute('disabled');
+            nextBtn.classList.remove('opacity-30', 'cursor-not-allowed');
+        }
+    }
+
     if (!grid) return;
 
     // オフセットに基づく表示月の計算

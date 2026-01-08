@@ -257,7 +257,9 @@ const handleBeerSubmit = async (e) => {
         saveAbv = userAbv;
         saveIsCustom = false;
     }
-
+    
+    const min = Calc.stepperEq(totalKcal);
+    
     // カロリーを保存（借金なのでマイナス）
     // 【重要】minutesは古い互換性のため残すか、完全に廃止するかですが、
     // ここでは新しい kcal フィールドを正として保存します。
@@ -835,6 +837,22 @@ const timerControl = {
         }
         return false;
     }
+};
+
+const showSwipeCoachMark = () => {
+    const KEY = 'nomutore_seen_swipe_hint';
+    if (localStorage.getItem(KEY)) return;
+    const el = document.getElementById('swipe-coach-mark');
+    if (!el) return;
+    el.classList.remove('hidden');
+    requestAnimationFrame(() => el.classList.remove('opacity-0'));
+    setTimeout(() => {
+        el.classList.add('opacity-0');
+        setTimeout(() => {
+            el.classList.add('hidden');
+            localStorage.setItem(KEY, 'true');
+        }, 500);
+    }, 3500);
 };
 
 // 【新規】データ移行関数：古いminutes基準のログをkcal基準に変換してDB更新
