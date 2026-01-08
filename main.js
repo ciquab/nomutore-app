@@ -536,7 +536,7 @@ text = `🏃‍♀️ 運動しました: ${exName} (${rawMinutes}分) | 借金�
     }
 
     shareToSocial(text);
-};す
+};
 
 const shareToSocial = async (text) => {
     if (navigator.share) {
@@ -1294,4 +1294,5 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
