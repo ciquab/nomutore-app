@@ -536,101 +536,75 @@ function renderChart(logs, checks) {
     const ctxCanvas = document.getElementById('balanceChart');
     if (!ctxCanvas || typeof Chart === 'undefined') return;
     
+    // --- フィルターボタンのスタイル更新 ---
     const filters = DOM.elements['chart-filters'] || document.getElementById('chart-filters');
     if(filters) {
         filters.querySelectorAll('button').forEach(btn => {
-            const activeClass = "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm";
-            const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
-            
-            btn.className = "px-2 py-1 text-[10px] font-bold rounded-md transition-all " + 
-                (btn.dataset.range === StateManager.chartRange ? activeClass : inactiveClass);
+            const isActive = btn.dataset.range === StateManager.chartRange;
+            btn.className = `px-2 py-1 text-[10px] font-bold rounded-md transition-all ${
+                isActive ? "active-filter bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm" 
+                         : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            }`;
         });
     }
 
     try {
         const now = dayjs();
-        let cutoffDate = 0;
-        
-        if (StateManager.chartRange === '1w') {
-            cutoffDate = now.subtract(7, 'day').valueOf();
-        } else if (StateManager.chartRange === '1m') {
-            cutoffDate = now.subtract(30, 'day').valueOf();
-        } else {
-            cutoffDate = 0;
-        }
+        let cutoffDate = StateManager.chartRange === '1w' ? now.subtract(7, 'day').valueOf() :
+                         StateManager.chartRange === '1m' ? now.subtract(30, 'day').valueOf() : 0;
 
         const allLogsSorted = [...logs].sort((a, b) => a.timestamp - b.timestamp);
         const allChecksSorted = [...checks].sort((a, b) => a.timestamp - b.timestamp);
         
         const fullHistoryMap = new Map();
-        let runningBalance = 0;
-
-        // 現在の設定を取得 (換算用)
+        let runningKcalBalance = 0; // kcalで管理して誤差を防ぐ
         const baseEx = Store.getBaseExercise();
+        const userProfile = Store.getProfile();
 
+        // ログの集計
         allLogsSorted.forEach(l => {
             const d = dayjs(l.timestamp);
             const k = d.format('M/D');
             
-            if (!fullHistoryMap.has(k)) fullHistoryMap.set(k, {plus:0, minus:0, bal:0, weight:null, ts: l.timestamp});
+            if (!fullHistoryMap.has(k)) fullHistoryMap.set(k, {plusKcal:0, minusKcal:0, balKcal:0, weight:null, ts: l.timestamp});
             const e = fullHistoryMap.get(k);
             
-            // 【重要】kcalを基準に計算し、表示時に分に換算
-            const kcal = l.kcal !== undefined ? l.kcal : (l.minutes * Calc.burnRate(6.0));
-            const minutes = Calc.convertKcalToMinutes(kcal, baseEx);
-
-            if (minutes >= 0) e.plus += minutes; else e.minus += minutes;
-            runningBalance += minutes;
-            e.bal = runningBalance;
+            const kcal = l.kcal !== undefined ? l.kcal : (l.minutes * Calc.burnRate(6.0, userProfile));
+            if (kcal >= 0) e.plusKcal += kcal; else e.minusKcal += kcal;
+            
+            runningKcalBalance += kcal;
+            e.balKcal = runningKcalBalance;
         });
 
+        // 体重データのマージ
         allChecksSorted.forEach(c => {
-             const d = dayjs(c.timestamp);
-             const k = d.format('M/D');
-             if (!fullHistoryMap.has(k)) {
-                 fullHistoryMap.set(k, {plus:0, minus:0, bal: runningBalance, weight:null, ts: c.timestamp});
-             }
-             const e = fullHistoryMap.get(k);
-             if (c.weight) e.weight = parseFloat(c.weight);
+            const k = dayjs(c.timestamp).format('M/D');
+            if (!fullHistoryMap.has(k)) {
+                fullHistoryMap.set(k, {plusKcal:0, minusKcal:0, balKcal: runningKcalBalance, weight:null, ts: c.timestamp});
+            }
+            if (c.weight) fullHistoryMap.get(k).weight = parseFloat(c.weight);
         });
 
-        let dataArray = Array.from(fullHistoryMap.entries()).map(([k, v]) => ({
-            label: k,
-            ...v
-        }));
+        // 表示用データ配列への変換（ここで初めて「分」に換算）
+        let dataArray = Array.from(fullHistoryMap.entries()).map(([label, v]) => ({
+            label,
+            plus: Calc.convertKcalToMinutes(v.plusKcal, baseEx, userProfile),
+            minus: Calc.convertKcalToMinutes(v.minusKcal, baseEx, userProfile),
+            bal: Calc.convertKcalToMinutes(v.balKcal, baseEx, userProfile),
+            weight: v.weight,
+            ts: v.ts
+        })).sort((a, b) => a.ts - b.ts);
 
-        dataArray.sort((a, b) => a.ts - b.ts);
-        
-        if (cutoffDate > 0) {
-            dataArray = dataArray.filter(d => d.ts >= cutoffDate);
+        if (cutoffDate > 0) dataArray = dataArray.filter(d => d.ts >= cutoffDate);
+        if (dataArray.length === 0) dataArray.push({label: now.format('M/D'), plus:0, minus:0, bal:0, weight:null});
+
+        // 体重軸の最小・最大計算
+        const validWeights = dataArray.map(d => d.weight).filter(w => typeof w === 'number' && !isNaN(w));
+        let weightMin = 40, weightMax = 90;
+        if (validWeights.length > 0) {
+            weightMin = Math.floor(Math.min(...validWeights) - 2);
+            weightMax = Math.ceil(Math.max(...validWeights) + 2);
         }
-        
-        if (dataArray.length === 0) {
-            dataArray.push({label: now.format('M/D'), plus:0, minus:0, bal:0, weight:null});
-        }
-
-        const labels = dataArray.map(d => d.label);
-        const plus = dataArray.map(d => d.plus);
-        const minus = dataArray.map(d => d.minus);
-        const bal = dataArray.map(d => d.bal);
-        const weight = dataArray.map(d => d.weight);
-        const validWeights = weight.filter(w => typeof w === 'number');
-
-let weightMin;
-let weightMax;
-
-if (validWeights.length > 0) {
-    const minW = Math.min(...validWeights);
-    const maxW = Math.max(...validWeights);
-
-    weightMin = Math.floor(minW - 2); // 下に余白
-    weightMax = Math.ceil(maxW + 2);  // 上に余白
-
-    weightMin = Math.max(weightMin, 30); // 安全装置
-} else {
-    weightMin = 40;
-    weightMax = 90;
-}
 
         if (StateManager.chart) StateManager.chart.destroy();
         
@@ -638,21 +612,16 @@ if (validWeights.length > 0) {
         const textColor = isDark ? '#9ca3af' : '#6b7280';
         const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-        const newChart = new Chart(ctxCanvas.getContext('2d'), {
-            type: 'bar',
+        const newChart = new Chart(ctxCanvas, {
             data: { 
-                labels: labels, 
+                labels: dataArray.map(d => d.label), 
                 datasets: [ 
                     { 
                         type: 'line', 
                         label: '体重 (kg)', 
-                        data: weight, 
+                        data: dataArray.map(d => d.weight), 
                         borderColor: '#F59E0B', 
                         borderDash: [5, 5],
-                        borderWidth: 2, 
-                        pointRadius: 3, 
-                        pointBackgroundColor: '#F59E0B',
-                        fill: false, 
                         yAxisID: 'y1',
                         spanGaps: true,
                         order: 0 
@@ -660,29 +629,25 @@ if (validWeights.length > 0) {
                     { 
                         type: 'line', 
                         label: '累積残高', 
-                        data: bal, 
+                        data: dataArray.map(d => d.bal), 
                         borderColor: '#4F46E5', 
-                        borderWidth: 2, 
                         tension: 0.3, 
-                        pointRadius: 1, 
                         fill: false, 
                         order: 1 
                     }, 
                     { 
                         type: 'bar', 
                         label: '返済', 
-                        data: plus, 
+                        data: dataArray.map(d => d.plus), 
                         backgroundColor: '#10B981', 
-                        borderRadius: 4, 
                         stack: '0', 
                         order: 2 
                     }, 
                     { 
                         type: 'bar', 
                         label: '借金', 
-                        data: minus, 
+                        data: dataArray.map(d => d.minus), 
                         backgroundColor: '#EF4444', 
-                        borderRadius: 4, 
                         stack: '0', 
                         order: 2 
                     } 
@@ -692,11 +657,10 @@ if (validWeights.length > 0) {
                 responsive: true, 
                 maintainAspectRatio: false, 
                 scales: { 
-                    x: { stacked: true, display: false }, 
+                    x: { stacked: true }, 
                     y: { 
-                        stacked: false, 
                         beginAtZero: true,
-                        title: { display: true, text: 'カロリー収支 (分)', color: textColor },
+                        title: { display: true, text: `収支 (${baseEx}分)`, color: textColor },
                         ticks: { color: textColor },
                         grid: { color: gridColor }
                     },
@@ -704,11 +668,11 @@ if (validWeights.length > 0) {
                         type: 'linear',
                         display: true,
                         position: 'right',
+                        min: weightMin, // 動的な値を適用
+                        max: weightMax, // 動的な値を適用
                         grid: { drawOnChartArea: false },
                         title: { display: true, text: '体重 (kg)', color: textColor },
-                        ticks: { color: textColor },
-                        min: 50,
-                        max: 100
+                        ticks: { color: textColor }
                     }
                 }, 
                 plugins: { 
@@ -1536,4 +1500,5 @@ export const refreshUI = async () => {
     renderHeatmap(checks, logs);
 
 };
+
 
