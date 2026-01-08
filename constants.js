@@ -49,6 +49,7 @@ export const CALORIES = {
         'ダブルIPA (DIPA)': 270,
 
         // --- 黒 / 濃厚系 ---
+        'アンバーエール': 165,
         'ポーター': 170,
         'スタウト': 200,
         'インペリアルスタウト': 280, // New
@@ -60,6 +61,9 @@ export const CALORIES = {
         // --- サワー / フルーツ ---
         'サワーエール': 140,
         'フルーツビール': 160,
+  
+        // 【追加】ノンアル (350ml換算: 糖質を含むものも考慮して50kcal程度に設定)
+        'ノンアル': 50,
     } 
 };
 
@@ -84,6 +88,7 @@ export const STYLE_METADATA = {
     'シュバルツ': { color: 'black', icon: '🍺' },
 
     // エール系
+    'アンバーエール': { color: 'amber', icon: '🍺' },
     'ゴールデンエール': { color: 'gold', icon: '🍺' },
     'ペールエール': { color: 'copper', icon: '🍺' },
     'ジャパニーズエール': { color: 'copper', icon: '🍺' },
@@ -108,6 +113,8 @@ export const STYLE_METADATA = {
     'バーレイワイン': { color: 'amber', icon: '🍷' },
     'サワーエール': { color: 'red', icon: '🍷' },
     'フルーツビール': { color: 'red', icon: '🍒' },
+
+    'ノンアル': { color: 'green', icon: '🍃' },
 };
 
 // 互換性維持のためのマッピング (logic.js変更回避のため既存のSTYLE_COLOR_MAPも残すが、中身は新定義を参照)

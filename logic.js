@@ -18,22 +18,26 @@ export const Calc = {
         return (bmr / 24 * netMets) / 60;
     },
     
-    // 【新規】運動時間(分) → カロリー(kcal)
+    // 【必須】カロリー計算関数 (new_logic.jsで欠落していたもの)
     calculateExerciseKcal: (minutes, exerciseKey) => {
         const exData = EXERCISE[exerciseKey] || EXERCISE['stepper'];
         const rate = Calc.burnRate(exData.mets);
         return minutes * rate;
     },
 
-    // 【新規】カロリー(kcal) → 指定された運動の時間(分)
+    // 【必須】カロリー→時間換算関数 (new_logic.jsで欠落していたもの)
     convertKcalToMinutes: (kcal, targetExerciseKey) => {
         const exData = EXERCISE[targetExerciseKey] || EXERCISE['stepper'];
         const rate = Calc.burnRate(exData.mets);
         if (rate === 0) return 0;
         return Math.round(kcal / rate);
     },
+
+    // 【追加】互換性維持用ヘルパー (new_logic.jsから採用)
+    stepperEq: (kcal) => {
+        return Calc.convertKcalToMinutes(kcal, 'stepper');
+    },
     
-    // アルコールカロリー計算（変更なし）
     calculateAlcoholKcal: (ml, abv, type) => {
         const alcoholG = ml * (abv / 100) * 0.8;
         let kcal = alcoholG * 7;
@@ -42,30 +46,26 @@ export const Calc = {
         }
         return kcal;
     },
-    
-    stepperEq: (kcal) => {
-        return Calc.convertKcalToMinutes(kcal, 'stepper');
-    },
 
-    // 【修正】タンク表示用データ生成 (カロリーベースに変更)
+    // 【維持】カロリーベースのタンク表示ロジック (logic.jsのものを採用)
     getTankDisplayData: (currentKcalBalance, currentBeerMode) => {
         const modes = Store.getModes();
         const targetStyle = currentBeerMode === 'mode1' ? modes.mode1 : modes.mode2;
         const unitKcal = CALORIES.STYLES[targetStyle] || 145;
         
-        // 色情報の決定
         const colorKey = STYLE_COLOR_MAP[targetStyle] || 'default';
         const liquidColor = BEER_COLORS[colorKey];
         const isHazy = (colorKey === 'hazy');
 
-        // 残数計算 (現在のカロリー収支 / 1本あたりのカロリー)
+        // カロリーベースで計算
         const canCount = parseFloat((currentKcalBalance / unitKcal).toFixed(1));
 
-        // 換算時間計算 (現在のカロリー収支を、設定されている運動で割る)
         const baseEx = Store.getBaseExercise();
         const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
+        
+        // カロリーから表示時間を計算
         const displayMinutes = Calc.convertKcalToMinutes(currentKcalBalance, baseEx);
-        const displayRate = Calc.burnRate(baseExData.mets); // 参考用
+        const displayRate = Calc.burnRate(baseExData.mets);
         
         return {
             targetStyle,
@@ -84,32 +84,47 @@ export const Calc = {
     
     getDayStatus: (date, logs, checks) => {
         const targetDay = dayjs(date);
-        
-        // その日のログを抽出
         const dayLogs = logs.filter(l => targetDay.isSame(dayjs(l.timestamp), 'day'));
         
-        // 飲酒があるか (kcal < 0)
-        const hasAlcohol = dayLogs.some(l => (l.kcal !== undefined ? l.kcal : l.minutes) < 0);
+        // 【修正】収支を計算して「完済」判定を行う
+        // kcalがあればkcal、なければ互換用minutesを使用
+        let balance = 0;
+        let hasAlcohol = false;
+        let hasExercise = false;
+
+        dayLogs.forEach(l => {
+            // カロリーまたは分を取得
+            const val = l.kcal !== undefined ? l.kcal : (l.minutes * Calc.burnRate(6.0));
+            balance += val;
+            
+            if (val < 0) hasAlcohol = true;
+            if (val > 0) hasExercise = true;
+        });
         
-        // 運動があるか (kcal > 0)
-        const hasExercise = dayLogs.some(l => (l.kcal !== undefined ? l.kcal : l.minutes) > 0);
-        
-        // 休肝日チェックがあるか
+        // 完済しているか（借金以上の運動をしたか）
+        // ※ わずかな誤差許容のため -1kcal 以上ならOKとする
+        const isRepaid = hasAlcohol && balance >= -1;
+
         const isDryCheck = checks.some(c => c.isDryDay && targetDay.isSame(dayjs(c.timestamp), 'day'));
         
-        // 判定ロジック (優先順位: 休肝日 > 飲酒 > 運動のみ)
+        // 判定ロジック
         if (isDryCheck) {
             return hasExercise ? 'rest_exercise' : 'rest';
         }
-        
         if (hasAlcohol) {
+            // 【重要】完済していれば、システム上は「成功」扱いとしたいが、
+            // 表示(Heatmap)では「青(飲んで動いた)」を出したい。
+            // そこで、呼び出し元で isRepaid を判断できるように、特別なサフィックスを付けるか、
+            // ここでは純粋な状態を返し、getStreakAtDate側でbalanceを見る形にする。
+            // → 今回は getStreakAtDate 側で再計算するのはコストが高いので、
+            //   ここで計算済みの balance を考慮した状態を返す設計にします。
+            
+            if (isRepaid) return 'drink_exercise_success'; // 新設: 完済
             return hasExercise ? 'drink_exercise' : 'drink';
         }
-        
         if (hasExercise) {
             return 'exercise';
         }
-        
         return 'none';
     },
 
@@ -123,7 +138,14 @@ export const Calc = {
         for (let i = 1; i <= 30; i++) {
             const d = baseDate.subtract(i, 'day');
             const status = Calc.getDayStatus(d, logs, checks);
-            if (status === 'dry') streak++; else break;
+            
+            // 【修正】休肝日(rest) または 完済(drink_exercise_success) ならStreak継続！
+            // これで「飲んでも返せばOK」というアプリのコンセプトが守られます
+            if (status === 'rest' || status === 'rest_exercise' || status === 'drink_exercise_success') {
+                streak++;
+            } else {
+                break;
+            }
         }
         return streak;
     },
@@ -134,10 +156,11 @@ export const Calc = {
         return 1.0;
     },
 
+    // 【維持】カロリーベースの飲酒判定 (logic.jsのものを採用)
     hasAlcoholLog: (logs, timestamp) => {
         const target = dayjs(timestamp);
         // kcalがマイナス＝飲酒
-        return logs.some(l => l.kcal < 0 && target.isSame(dayjs(l.timestamp), 'day'));
+        return logs.some(l => (l.kcal !== undefined ? l.kcal : l.minutes) < 0 && target.isSame(dayjs(l.timestamp), 'day'));
     },
     
     getDryDayCount: (checks) => {
@@ -172,7 +195,9 @@ export const Calc = {
             const d = dayjs(l.timestamp);
             if (d.isAfter(cutoffDate)) {
                 const key = d.format('YYYY-MM-DD');
-                dailyBalances[key] = (dailyBalances[key] || 0) + (l.kcal || 0);
+                // カロリーベースで集計
+                const val = l.kcal !== undefined ? l.kcal : (l.minutes * Calc.burnRate(6.0)); // fallback
+                dailyBalances[key] = (dailyBalances[key] || 0) + val;
             }
         });
 

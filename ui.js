@@ -1314,11 +1314,17 @@ export const updateBeerSelectOptions = () => {
         s.value = StateManager.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
     }
 
-    // モードタブのテキスト更新
-    const t1 = document.getElementById('mode-tab-1-text');
-    const t2 = document.getElementById('mode-tab-2-text');
-    if(t1) t1.textContent = modes.mode1;
-    if(t2) t2.textContent = modes.mode2;
+    // 【修正】存在しないタブIDの操作を削除し、セレクトボックス横のラベル更新を復活
+    const labelEl = document.getElementById('beer-select-mode-label');
+    const baseEx = Store.getBaseExercise();
+    const exData = EXERCISE[baseEx] || EXERCISE['stepper'];
+    
+    // 現在のモード（ビール換算など）を表示
+    if(labelEl) {
+        // 現在選択中のモード名を取得
+        const modeKey = StateManager.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
+        labelEl.textContent = `${modeKey} 換算`;
+    }
 };
 
 // ヒートマップ描画 (refreshUIから呼ばれる)
@@ -1386,6 +1392,13 @@ function renderHeatmap(checks, logs) {
                 textClass = 'text-white font-bold';
                 icon = '🍵';
                 break;
+            // 【ここを追加】完済した場合も、青色（drink_exercise）と同じ見た目でOKだが、
+            // ボーダーをゴールドにするなど「偉い！」感を出すことも可能
+            case 'drink_exercise_success':
+                bgClass = 'bg-blue-500 border-2 border-yellow-400 shadow-md'; // 完済は枠線を強調！
+                textClass = 'text-white font-bold';
+                icon = '🔥'; // アイコンも燃やす
+                break;
             case 'drink_exercise': // 飲酒+運動 (Blue)
                 bgClass = 'bg-blue-400 border border-blue-500 shadow-sm';
                 textClass = 'text-white font-bold';
@@ -1418,6 +1431,51 @@ function renderHeatmap(checks, logs) {
     grid.innerHTML = html;
 }
 
+// 【修正】消失していた「いつもの」ボタン描画関数を復活
+function renderQuickButtons(logs) {
+    const container = document.getElementById('quick-input-area');
+    if (!container) return;
+    
+    // 履歴から頻出の組み合わせを集計
+    const counts = {};
+    logs.forEach(l => {
+        // 借金ログ（飲酒）のみ対象
+        const isDebt = l.kcal !== undefined ? l.kcal < 0 : l.minutes < 0;
+        if (isDebt && l.style && l.size) {
+            const key = `${l.style}|${l.size}`;
+            counts[key] = (counts[key] || 0) + 1;
+        }
+    });
+
+    // 上位2件を抽出
+    const topShortcuts = Object.keys(counts)
+        .sort((a, b) => counts[b] - counts[a])
+        .slice(0, 2)
+        .map(key => {
+            const [style, size] = key.split('|');
+            return { style, size };
+        });
+
+    if (topShortcuts.length === 0) {
+        container.innerHTML = ''; 
+        return;
+    }
+
+    // HTML生成
+    container.innerHTML = topShortcuts.map(item => {
+        const sizeLabel = SIZE_DATA[item.size] ? SIZE_DATA[item.size].label.replace(/ \(.*\)/, '') : item.size;
+        // escapeHtmlはファイル内で定義されているものを使用
+        const styleEsc = item.style.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]);
+        
+        return `<button data-style="${styleEsc}" data-size="${item.size}" 
+            class="quick-beer-btn flex-1 bg-white dark:bg-gray-800 border border-indigo-100 dark:border-gray-700 text-indigo-600 dark:text-indigo-400 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 dark:hover:bg-gray-700 text-xs flex flex-col items-center justify-center transition active:scale-95">
+            <span class="mb-0.5 text-[10px] text-indigo-400 uppercase">いつもの</span>
+            <span>${styleEsc}</span>
+            <span class="text-[10px] opacity-70">${sizeLabel}</span>
+        </button>`;
+    }).join('');
+}
+
 // 画面一括更新 (main.jsから呼ばれるメイン関数)
 export const refreshUI = async () => {
     // 1. データ取得
@@ -1437,6 +1495,7 @@ export const refreshUI = async () => {
     renderLiverRank(checks, logs);
     renderCheckStatus(checks, logs);
     renderWeeklyAndHeatUp(logs, checks);
+    renderQuickButtons(logs);
     renderChart(logs, checks);
     
     // 4. ログリストのリセット (無限スクロールの頭出し)

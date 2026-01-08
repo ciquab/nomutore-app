@@ -53,6 +53,7 @@ const STYLE_SPECS = {
     'Hazy IPA': { abv: 7.0, type: 'sweet' },
     'Hazyペールエール': { abv: 6.0, type: 'sweet' },
     'ダブルIPA (DIPA)': { abv: 8.5, type: 'sweet' },
+    'アンバーエール': { abv: 5.5, type: 'sweet' },
     'ポーター': { abv: 5.5, type: 'sweet' },
     'スタウト': { abv: 6.0, type: 'sweet' },
     'インペリアルスタウト': { abv: 9.0, type: 'sweet' },
@@ -146,10 +147,15 @@ const recalcDailyExercises = async (targetTs) => {
             if (entry) exKey = entry[0];
         }
 
-        // rawMinutes(実時間)から基準カロリーを計算
-        const rawMinutes = log.rawMinutes || 30; // fallback
-        
-        const baseKcal = Calc.calculateExerciseKcal(rawMinutes, exKey);
+        // 【修正】運動種目データを取得（なければステッパー）
+    const exData = EXERCISE[exKey] || EXERCISE['stepper'];
+
+    // 【修正】rawMinutes(実時間)がない古いデータは、保存されているminutesとステッパー基準から逆算して復元
+    // これをしないと、過去の記録が一律「30分」として再計算されてしまいます
+    const rawMinutes = log.rawMinutes || Math.round(Calc.stepperEq(log.minutes * Calc.burnRate(EXERCISE['stepper'].mets)) / Calc.burnRate(exData.mets));
+    
+    // 計算
+    const baseKcal = Calc.calculateExerciseKcal(rawMinutes, exKey);
         const bonusKcal = baseKcal * multiplier;
 
         let newMemo = log.memo || '';
@@ -484,13 +490,17 @@ const handleDetailShare = async () => {
         text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExData.label}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
         // 運動
-        const rawMins = log.rawMinutes || log.minutes; // rawがあればそれを、なければminutesを
+        const rawMins = log.rawMinutes || log.minutes; 
         // 獲得カロリー計算
         const earnedKcal = log.kcal !== undefined ? log.kcal : (log.minutes * Calc.burnRate(6.0));
-        const earnedMins = Calc.convertKcalToMinutes(earnedKcal, baseEx);
+        
+        // 【修正】ユーザーが設定している「モード1（ビールなど）」換算で表示する仕様に戻す
+        const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || '国産ピルスナー';
+        const earnedMins = Calc.convertKcalToMinutes(earnedKcal, mode1); // モード1基準で計算
+        
         const exName = log.name.split(' ')[1] || log.name; 
         
-        text = `🏃‍♀️ 運動しました: ${exName} (${rawMins}分) | 借金返済: ${baseExData.label}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
+        text = `🏃‍♀️ 運動しました: ${exName} (${rawMins}分) | 借金返済: ${mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
     }
 
     shareToSocial(text);
