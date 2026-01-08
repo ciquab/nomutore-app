@@ -36,6 +36,11 @@ export const Calc = {
         if (rate === 0) return 0;
         return Math.round(kcal / rate);
     },
+    convertKcalToBeerCount: (kcal, beerStyle) => {
+    const unitKcal = CALORIES.STYLES[beerStyle];
+    if (!unitKcal) return 0;
+    return Math.round((kcal / unitKcal) * 10) / 10; // 小数1桁
+},
 
     // 4. 引数 profile を追加し、convertKcalToMinutes へ渡す
     stepperEq: (kcal, profile = null) => {
@@ -226,4 +231,5 @@ export const Calc = {
         if (recentSuccessDays >= 8)  return { rank: 'B', label: '健康志向 🌿', color: 'text-green-600', bg: 'bg-green-100', next: 12, current: recentSuccessDays };
         return { rank: 'C', label: '要注意 ⚠️', color: 'text-red-500', bg: 'bg-red-50', next: 8, current: recentSuccessDays };
     }
+
 };
