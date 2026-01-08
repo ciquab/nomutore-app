@@ -956,7 +956,9 @@ function renderBeerTank(currentBalance) {
         unitKcal, 
         displayRate, 
         totalKcal, 
-        targetStyle 
+        targetStyle,
+        liquidColor, // 追加
+        isHazy       // 追加 
     } = Calc.getTankDisplayData(currentBalance, StateManager.beerMode);
 
     const liquid = DOM.elements['tank-liquid'];
@@ -968,6 +970,14 @@ function renderBeerTank(currentBalance) {
     if (!liquid || !emptyIcon || !cansText || !minText || !msgText) return;
 
     requestAnimationFrame(() => {
+        // 【追加】液色とHazyエフェクトの適用
+        liquid.style.background = liquidColor;
+        if (isHazy) {
+            liquid.style.filter = 'blur(1px) brightness(1.1)';
+        } else {
+            liquid.style.filter = 'none';
+        }
+
         if (currentBalance > 0) {
             emptyIcon.style.opacity = '0';
             let h = (canCount / APP.TANK_MAX_CANS) * 100;
@@ -1339,5 +1349,4 @@ function renderChart(logs, checks) {
         StateManager.setChart(newChart);
 
     } catch(e) { console.error('Chart Error', e); }
-
 }

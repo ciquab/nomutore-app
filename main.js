@@ -253,11 +253,12 @@ const handleBeerSubmit = async (e) => {
 const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
+    const applyBonus = document.getElementById('manual-apply-bonus').checked; // チェックボックスの状態
     
-    // 【修正】マイナス値や0をブロック
     if (!m || m <= 0) return UI.showMessage('正しい時間を入力してください', 'error'); 
     
-    await recordExercise(document.getElementById('exercise-select').value, m, dateVal); 
+    // applyBonus引数を追加して渡す
+    await recordExercise(document.getElementById('exercise-select').value, m, dateVal, applyBonus); 
     
     document.getElementById('manual-minutes').value=''; 
     toggleModal('manual-exercise-modal', false); 
@@ -380,14 +381,20 @@ const handleDetailShare = async () => {
         const debtMins = Math.abs(log.minutes);
         const beerName = log.brand ? `${log.brand}` : (log.style || 'ビール');
         const star = log.rating > 0 ? '★'.repeat(log.rating) : '';
+        // 【修正】運動基準名を取得して表示
+        const baseEx = Store.getBaseExercise();
+        const baseExName = EXERCISE[baseEx] ? EXERCISE[baseEx].label : '運動';
         
-        text = `🍺 飲みました: ${beerName} | 借金発生: 運動${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
+        text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExName}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
         // 🏃‍♀️ 運動ログの場合
         const earnedMins = log.minutes;
-        const exName = log.name.split(' ')[1] || log.name; // アイコン除去
+        const exName = log.name.split(' ')[1] || log.name; 
         
-        text = `🏃‍♀️ 運動しました: ${exName} (${log.rawMinutes}分) | 借金返済: ビール換算で${earnedMins}分を確保！🍺 #ノムトレ #飲んだら動く`;
+        // 【修正】具体的な運動基準名またはビール換算を表示
+        // ここでは「ユーザーが設定しているビールモード1」を基準にするのが分かりやすい
+        const modes = Store.getModes();
+        text = `🏃‍♀️ 運動しました: ${exName} (${log.rawMinutes}分) | 借金返済: ${modes.mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
     }
 
     shareToSocial(text);
@@ -443,11 +450,17 @@ const handleTouchEnd = (e) => {
    Internal Logic & Functions
    ========================================================================== */
 
-async function recordExercise(t, m, dateVal = null) { 
+async function recordExercise(t, m, dateVal = null, applyBonus = true) { 
     const allLogs = await db.logs.toArray();
     const allChecks = await db.checks.toArray();
-    const streak = Calc.getCurrentStreak(allLogs, allChecks);
-    const multiplier = Calc.getStreakMultiplier(streak);
+    
+    const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
+
+    // 【修正】Calc.getStreakAtDate を使用して「その時点」のStreakを取得
+    const streak = Calc.getStreakAtDate(ts, allLogs, allChecks);
+    
+    // チェックボックスがオフなら倍率は1.0固定
+    const multiplier = applyBonus ? Calc.getStreakMultiplier(streak) : 1.0;
 
     const i = EXERCISE[t];
     const baseKcal = Calc.burnRate(i.mets) * m;
@@ -455,9 +468,15 @@ async function recordExercise(t, m, dateVal = null) {
     const eq = Calc.stepperEq(bonusKcal);
     const earnedMinutes = Math.round(eq);
 
-    const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
-
     const currentBalance = allLogs.reduce((sum, l) => sum + l.minutes, 0);
+
+    // メモ欄の文言も調整
+    let bonusMemo = '';
+    if (applyBonus && multiplier > 1.0) {
+        bonusMemo = `🔥 Streak Bonus x${multiplier}`;
+    } else if (!applyBonus) {
+        bonusMemo = `(Bonusなし)`;
+    }
 
     await db.logs.add({
         name: `${i.icon} ${i.label}`, 
@@ -465,7 +484,7 @@ async function recordExercise(t, m, dateVal = null) {
         minutes: earnedMinutes, 
         rawMinutes: m, 
         timestamp: ts,
-        memo: multiplier > 1.0 ? `🔥 Streak Bonus x${multiplier}` : ''
+        memo: bonusMemo
     }); 
     
     if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {

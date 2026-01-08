@@ -1,6 +1,6 @@
 import { Store } from './store.js';
-import { EXERCISE, CALORIES, APP } from './constants.js'; // 【追加】CALORIES, APPを追加
-// Day.js をCDNからインポート (ES Modules)
+// 【変更】定数のインポート元を更新
+import { EXERCISE, CALORIES, APP, BEER_COLORS, STYLE_COLOR_MAP } from './constants.js'; 
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
 export const Calc = {
@@ -20,7 +20,6 @@ export const Calc = {
     },
     stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
     
-    // 【新規】アルコールのカロリー計算ロジック (main.jsから移動)
     calculateAlcoholKcal: (ml, abv, type) => {
         const alcoholG = ml * (abv / 100) * 0.8;
         let kcal = alcoholG * 7;
@@ -30,25 +29,24 @@ export const Calc = {
         return kcal;
     },
 
-    // 【新規】タンク表示用の計算ロジック (ui.jsから移動)
-    // 借金(分)を受け取り、表示に必要なデータ(本数、表示用運動時間など)を返す
+    // 【修正】液色情報を返すように変更
     getTankDisplayData: (currentBalance, currentBeerMode) => {
         const modes = Store.getModes();
         const targetStyle = currentBeerMode === 'mode1' ? modes.mode1 : modes.mode2;
         const unitKcal = CALORIES.STYLES[targetStyle] || 145;
         
-        // 借金(ステッパー分)をカロリーに戻す
+        // 色情報の決定
+        const colorKey = STYLE_COLOR_MAP[targetStyle] || 'default';
+        const liquidColor = BEER_COLORS[colorKey];
+        // Hazyかどうか
+        const isHazy = (colorKey === 'hazy');
+
         const totalKcal = currentBalance * Calc.burnRate(EXERCISE['stepper'].mets);
-        
-        // 選択中のビール何本分か
         const canCount = parseFloat((totalKcal / unitKcal).toFixed(1));
 
-        // 表示用の運動基準
         const baseEx = Store.getBaseExercise();
         const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
         const displayRate = Calc.burnRate(baseExData.mets);
-        
-        // 表示用の運動時間
         const displayMinutes = totalKcal / displayRate;
         
         return {
@@ -58,49 +56,42 @@ export const Calc = {
             baseExData,
             unitKcal,
             displayRate,
-            totalKcal
+            totalKcal,
+            liquidColor, // 追加
+            isHazy       // 追加
         };
     },
     
-    // Day.js を使用して日付が同じかどうかを判定 ('day'単位で比較)
     isSameDay: (ts1, ts2) => dayjs(ts1).isSame(dayjs(ts2), 'day'),
     
-    // 日付の状態判定（UIのスタンプやStreakで使用）
     getDayStatus: (date, logs, checks) => {
         const targetDay = dayjs(date);
-        
-        // その日のログを抽出
         const dayLogs = logs.filter(l => targetDay.isSame(dayjs(l.timestamp), 'day'));
-        
-        // 収支計算
         let balance = 0;
         dayLogs.forEach(l => balance += l.minutes);
-        
-        // 休肝日チェックありか？
         const isDryCheck = checks.some(c => c.isDryDay && targetDay.isSame(dayjs(c.timestamp), 'day'));
-        
-        // 判定ロジック修正:
-        // 1. 休肝日チェックがあれば「dry (成功)」
-        // 2. ログがあり、かつ収支がプラマイゼロ以上なら「dry (成功)」扱い（完済）
-        // 3. 収支がマイナスなら「drink (失敗)」
-        // 4. それ以外（ログなし、チェックなし）は「unknown」
         
         if (isDryCheck) return 'dry';
         if (dayLogs.length > 0) {
-            if (balance >= 0) return 'dry'; // 完済も成功扱い
-            return 'drink'; // 借金残あり
+            if (balance >= 0) return 'dry'; 
+            return 'drink'; 
         }
-        
         return 'unknown';
     },
 
+    // 【変更】リファクタリング：getStreakAtDateに処理を委譲
     getCurrentStreak: (logs, checks) => {
+        return Calc.getStreakAtDate(dayjs(), logs, checks);
+    },
+
+    // 【新規】指定した日付時点でのStreakを計算する関数
+    getStreakAtDate: (dateInput, logs, checks) => {
         let streak = 0;
-        const today = dayjs(); 
+        const baseDate = dayjs(dateInput); 
         
-        // 過去30日分遡ってチェック
+        // 指定日の前日から過去30日分遡ってチェック
         for (let i = 1; i <= 30; i++) {
-            const d = today.subtract(i, 'day');
+            const d = baseDate.subtract(i, 'day');
             const status = Calc.getDayStatus(d, logs, checks);
             if (status === 'dry') streak++; else break;
         }
@@ -128,7 +119,7 @@ export const Calc = {
 
     getRecentGrade: (checks, logs = []) => {
         const NOW = dayjs();
-        const PERIOD_DAYS = 28; // 4週間
+        const PERIOD_DAYS = 28; 
         
         let startTs = NOW.valueOf();
         if (checks.length > 0) startTs = Math.min(startTs, checks[0].timestamp);
