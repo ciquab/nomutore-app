@@ -1512,15 +1512,8 @@ export const refreshUI = async () => {
     renderQuickButtons(logs);
     renderChart(logs, checks);
     
-    // 4. ログリストの更新
-    if (keepScrollPosition) {
-        // 現在の表示件数分だけ再取得して描画（スクロール位置はDOMが維持される限り保たれるが、innerHTML書き換えだと飛ぶ可能性あり）
-        // 簡易的には、編集時はリセットせず、DOMの部分更新が理想ですが、
-        // 少なくとも「limitを50に戻さない」対応が必要です。
-        await updateLogListView(true); // trueなら追記モードっぽくなるが、実装次第
-    } else {
-        await updateLogListView(false);
-    }
+    // 4. ログリストのリセット (無限スクロールの頭出し)
+    await updateLogListView(false);
 
     // 5. ヒートマップ描画
     renderHeatmap(checks, logs);
