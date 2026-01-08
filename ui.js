@@ -1,4 +1,4 @@
-import { APP, EXERCISE, CALORIES, SIZE_DATA } from './constants.js';
+import { APP, EXERCISE, CALORIES, SIZE_DATA, STYLE_METADATA } from './constants.js';
 import { Calc } from './logic.js';
 import { Store, db } from './store.js';
 // Day.js をCDNからインポート
@@ -521,7 +521,17 @@ export const UI = {
 
         const isDebt = log.minutes < 0;
         
-        DOM.elements['detail-icon'].textContent = isDebt ? '🍺' : '🏃‍♀️';
+        // 【修正】アイコンの動的取得
+        let iconChar = isDebt ? '🍺' : '🏃‍♀️';
+        if (isDebt && log.style && STYLE_METADATA[log.style]) {
+            iconChar = STYLE_METADATA[log.style].icon;
+        } else if (!isDebt) {
+            // 運動アイコンもここに合わせて取得（EXERCISE定義から）
+            const exKey = log.exerciseKey; // 以前の修正で保存するようにしたキー
+            if (exKey && EXERCISE[exKey]) iconChar = EXERCISE[exKey].icon;
+        }
+        
+        DOM.elements['detail-icon'].textContent = iconChar;
         DOM.elements['detail-title'].textContent = log.name;
         DOM.elements['detail-date'].textContent = dayjs(log.timestamp).format('YYYY/MM/DD HH:mm');
         
@@ -943,9 +953,19 @@ function renderLogList(logs) {
 
     const htmlItems = logs.map(log => {
         const isDebt = log.minutes < 0;
-        const typeText = isDebt ? '借金 🍺' : '返済 🏃‍♀️';
+        const typeText = isDebt ? '借金' : '返済';
         const signClass = isDebt ? 'text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-300' : 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-300';
-        
+
+        // 【修正】リスト左側のアイコン決定
+        let iconChar = isDebt ? '🍺' : '🏃‍♀️';
+        if (isDebt && log.style && STYLE_METADATA[log.style]) {
+            iconChar = STYLE_METADATA[log.style].icon;
+        } else if (!isDebt && log.name) {
+             // 運動アイコン（簡易的に名前から推測、またはexerciseKeyがあればそれを使う）
+             const exEntry = Object.values(EXERCISE).find(e => log.name.includes(e.label));
+             if(exEntry) iconChar = exEntry.icon;
+        }
+
         const date = dayjs(log.timestamp).format('MM/DD HH:mm');
         
         let detailHtml = '';
@@ -972,7 +992,7 @@ function renderLogList(logs) {
         return `<div class="log-item-row flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 group transition-colors cursor-pointer" data-id="${log.id}">
                     <div class="flex items-center flex-grow min-w-0 pr-2">
                         ${checkboxHtml}
-                        <div class="min-w-0">
+                        <div class="mr-3 text-2xl flex-shrink-0">${iconChar}</div> <div class="min-w-0">
                             <p class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${escapeHtml(log.name)}</p>
                             ${detailHtml} <p class="text-[10px] text-gray-400 mt-0.5">${date}</p>
                         </div>
