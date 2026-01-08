@@ -1,5 +1,4 @@
 import { Store } from './store.js';
-// 【変更】定数のインポート元を更新
 import { EXERCISE, CALORIES, APP, BEER_COLORS, STYLE_COLOR_MAP } from './constants.js'; 
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
@@ -18,8 +17,23 @@ export const Calc = {
         const netMets = Math.max(0, mets - 1);
         return (bmr / 24 * netMets) / 60;
     },
-    stepperEq: (kcal) => kcal / Calc.burnRate(EXERCISE['stepper'].mets),
     
+    // 【新規】運動時間(分) → カロリー(kcal)
+    calculateExerciseKcal: (minutes, exerciseKey) => {
+        const exData = EXERCISE[exerciseKey] || EXERCISE['stepper'];
+        const rate = Calc.burnRate(exData.mets);
+        return minutes * rate;
+    },
+
+    // 【新規】カロリー(kcal) → 指定された運動の時間(分)
+    convertKcalToMinutes: (kcal, targetExerciseKey) => {
+        const exData = EXERCISE[targetExerciseKey] || EXERCISE['stepper'];
+        const rate = Calc.burnRate(exData.mets);
+        if (rate === 0) return 0;
+        return Math.round(kcal / rate);
+    },
+    
+    // アルコールカロリー計算（変更なし）
     calculateAlcoholKcal: (ml, abv, type) => {
         const alcoholG = ml * (abv / 100) * 0.8;
         let kcal = alcoholG * 7;
@@ -29,8 +43,8 @@ export const Calc = {
         return kcal;
     },
 
-    // 【修正】液色情報を返すように変更
-    getTankDisplayData: (currentBalance, currentBeerMode) => {
+    // 【修正】タンク表示用データ生成 (カロリーベースに変更)
+    getTankDisplayData: (currentKcalBalance, currentBeerMode) => {
         const modes = Store.getModes();
         const targetStyle = currentBeerMode === 'mode1' ? modes.mode1 : modes.mode2;
         const unitKcal = CALORIES.STYLES[targetStyle] || 145;
@@ -38,16 +52,16 @@ export const Calc = {
         // 色情報の決定
         const colorKey = STYLE_COLOR_MAP[targetStyle] || 'default';
         const liquidColor = BEER_COLORS[colorKey];
-        // Hazyかどうか
         const isHazy = (colorKey === 'hazy');
 
-        const totalKcal = currentBalance * Calc.burnRate(EXERCISE['stepper'].mets);
-        const canCount = parseFloat((totalKcal / unitKcal).toFixed(1));
+        // 残数計算 (現在のカロリー収支 / 1本あたりのカロリー)
+        const canCount = parseFloat((currentKcalBalance / unitKcal).toFixed(1));
 
+        // 換算時間計算 (現在のカロリー収支を、設定されている運動で割る)
         const baseEx = Store.getBaseExercise();
         const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
-        const displayRate = Calc.burnRate(baseExData.mets);
-        const displayMinutes = totalKcal / displayRate;
+        const displayMinutes = Calc.convertKcalToMinutes(currentKcalBalance, baseEx);
+        const displayRate = Calc.burnRate(baseExData.mets); // 参考用
         
         return {
             targetStyle,
@@ -56,9 +70,9 @@ export const Calc = {
             baseExData,
             unitKcal,
             displayRate,
-            totalKcal,
-            liquidColor, // 追加
-            isHazy       // 追加
+            totalKcal: currentKcalBalance,
+            liquidColor,
+            isHazy
         };
     },
     
@@ -68,7 +82,7 @@ export const Calc = {
         const targetDay = dayjs(date);
         const dayLogs = logs.filter(l => targetDay.isSame(dayjs(l.timestamp), 'day'));
         let balance = 0;
-        dayLogs.forEach(l => balance += l.minutes);
+        dayLogs.forEach(l => balance += (l.kcal || 0)); // kcalで判定
         const isDryCheck = checks.some(c => c.isDryDay && targetDay.isSame(dayjs(c.timestamp), 'day'));
         
         if (isDryCheck) return 'dry';
@@ -79,17 +93,13 @@ export const Calc = {
         return 'unknown';
     },
 
-    // 【変更】リファクタリング：getStreakAtDateに処理を委譲
     getCurrentStreak: (logs, checks) => {
         return Calc.getStreakAtDate(dayjs(), logs, checks);
     },
 
-    // 【新規】指定した日付時点でのStreakを計算する関数
     getStreakAtDate: (dateInput, logs, checks) => {
         let streak = 0;
         const baseDate = dayjs(dateInput); 
-        
-        // 指定日の前日から過去30日分遡ってチェック
         for (let i = 1; i <= 30; i++) {
             const d = baseDate.subtract(i, 'day');
             const status = Calc.getDayStatus(d, logs, checks);
@@ -106,7 +116,8 @@ export const Calc = {
 
     hasAlcoholLog: (logs, timestamp) => {
         const target = dayjs(timestamp);
-        return logs.some(l => l.minutes < 0 && target.isSame(dayjs(l.timestamp), 'day'));
+        // kcalがマイナス＝飲酒
+        return logs.some(l => l.kcal < 0 && target.isSame(dayjs(l.timestamp), 'day'));
     },
     
     getDryDayCount: (checks) => {
@@ -141,7 +152,7 @@ export const Calc = {
             const d = dayjs(l.timestamp);
             if (d.isAfter(cutoffDate)) {
                 const key = d.format('YYYY-MM-DD');
-                dailyBalances[key] = (dailyBalances[key] || 0) + l.minutes;
+                dailyBalances[key] = (dailyBalances[key] || 0) + (l.kcal || 0);
             }
         });
 

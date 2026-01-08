@@ -1,9 +1,7 @@
-import { APP, EXERCISE, SIZE_DATA, CALORIES } from './constants.js';
+import { APP, EXERCISE, SIZE_DATA } from './constants.js';
 import { db, Store, ExternalApp } from './store.js';
 import { Calc } from './logic.js';
-// 【変更】currentState を削除し StateManager をインポート
 import { UI, StateManager, updateBeerSelectOptions, refreshUI, toggleModal } from './ui.js';
-// Day.js をCDNからインポート
 import dayjs from 'https://cdn.jsdelivr.net/npm/dayjs@1.11.10/+esm';
 
 /* ==========================================================================
@@ -13,32 +11,24 @@ const showErrorOverlay = (msg, source, lineno) => {
     const overlay = document.getElementById('global-error-overlay');
     const details = document.getElementById('error-details');
     if (overlay && details) {
-        // 現在時刻
         const now = new Date().toLocaleString();
-        // エラー詳細テキスト
         const errText = `[${now}]\nMessage: ${msg}\nSource: ${source}:${lineno}\nUA: ${navigator.userAgent}`;
-        
         details.textContent = errText;
         overlay.classList.remove('hidden');
-        
-        // コピーボタンの機能付け
         document.getElementById('btn-copy-error').onclick = () => {
             navigator.clipboard.writeText(errText)
                 .then(() => alert('エラーログをコピーしました'))
                 .catch(() => alert('コピーに失敗しました'));
         };
     }
-    // コンソールにも出す
     console.error('Global Error Caught:', msg);
 };
 
-// 1. 通常のJSエラー (SyntaxError, ReferenceErrorなど)
 window.onerror = function(msg, source, lineno, colno, error) {
     showErrorOverlay(msg, source, lineno);
-    return false; // デフォルトの処理も走らせる
+    return false;
 };
 
-// 2. Promise由来のエラー (async/awaitの失敗など)
 window.addEventListener('unhandledrejection', function(event) {
     showErrorOverlay(`Unhandled Promise Rejection: ${event.reason}`, 'Promise', 0);
 });
@@ -47,44 +37,31 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // constants.js の CALORIES.STYLES のキーと整合性を取った定義
 const STYLE_SPECS = {
-    // --- ラガー ---
-    '国産ピルスナー': { abv: 5.0, type: 'sweet' },      // Renamed
-    '糖質オフ/新ジャンル': { abv: 4.0, type: 'dry' },   // Renamed
+    '国産ピルスナー': { abv: 5.0, type: 'sweet' },
+    '糖質オフ/新ジャンル': { abv: 4.0, type: 'dry' },
     'ピルスナー': { abv: 5.0, type: 'sweet' },
     'ドルトムンター': { abv: 5.5, type: 'sweet' },
     'シュバルツ': { abv: 5.0, type: 'sweet' },
-
-    // --- エール ---
-    'ゴールデンエール': { abv: 5.0, type: 'sweet' },    // New
+    'ゴールデンエール': { abv: 5.0, type: 'sweet' },
     'ペールエール': { abv: 5.5, type: 'sweet' },
     'ジャパニーズエール': { abv: 5.5, type: 'sweet' },
     'ヴァイツェン': { abv: 5.0, type: 'sweet' },
     'ベルジャンホワイト': { abv: 5.0, type: 'sweet' },
     'セゾン': { abv: 6.0, type: 'sweet' },
-
-    // --- IPA ---
     'セッションIPA': { abv: 4.5, type: 'sweet' },
     'IPA (West Coast)': { abv: 6.5, type: 'sweet' },
     'Hazy IPA': { abv: 7.0, type: 'sweet' },
     'Hazyペールエール': { abv: 6.0, type: 'sweet' },
     'ダブルIPA (DIPA)': { abv: 8.5, type: 'sweet' },
-    'アンバーエール': { abv: 5.5, type: 'sweet' }, // constantsにはないが念のため残すか、削除してもよい
-
-    // --- 黒 ---
     'ポーター': { abv: 5.5, type: 'sweet' },
     'スタウト': { abv: 6.0, type: 'sweet' },
-    'インペリアルスタウト': { abv: 9.0, type: 'sweet' }, // New
-
-    // --- ハイアルコール ---
+    'インペリアルスタウト': { abv: 9.0, type: 'sweet' },
     'ベルジャン・トリペル': { abv: 9.0, type: 'sweet' },
     'バーレイワイン': { abv: 10.0, type: 'sweet' },
-
-    // --- その他 ---
     'サワーエール': { abv: 5.0, type: 'sweet' },
     'フルーツビール': { abv: 5.0, type: 'sweet' }
 };
 
-// Helper: 日付文字列(YYYY-MM-DD)を、その日の12:00のTimestampに変換
 const getDateTimestamp = (dateStr) => {
     if (!dateStr) return Date.now();
     return dayjs(dateStr).startOf('day').add(12, 'hour').valueOf();
@@ -94,7 +71,6 @@ const getDateTimestamp = (dateStr) => {
    Event Handling & App Logic
    ========================================================================== */
 
-// 編集モード管理用の変数
 let editingLogId = null;
 let editingCheckId = null;
 
@@ -109,9 +85,7 @@ const handleSaveSettings = () => {
     const theme = document.getElementById('theme-input').value;
     const de = document.getElementById('setting-default-record-exercise').value;
     
-    // 【修正】基本的な入力チェックに加え、数値の範囲チェックを追加
     if (w > 0 && h > 0 && a > 0 && m1 && m2 && be) {
-        // 常識的な範囲チェック (必須ではないが安全のため)
         if (w > 300 || h > 300 || a > 150) {
             return UI.showMessage('入力値を確認してください', 'error');
         }
@@ -133,7 +107,6 @@ const handleSaveSettings = () => {
         if (recordSelect) recordSelect.value = de;
         
         UI.applyTheme(theme);
-        
         refreshUI();
         UI.showMessage('設定を保存しました', 'success');
     } else {
@@ -141,54 +114,44 @@ const handleSaveSettings = () => {
     }
 };
 
-// 【新規】同日の運動ログを再計算してボーナスを整合させる関数
+// 【修正】同日の運動ログを再計算（カロリーベース）
 const recalcDailyExercises = async (targetTs) => {
     const targetDate = dayjs(targetTs);
     
-    // 1. その日の全ログを取得
     const dayStart = targetDate.startOf('day').valueOf();
     const dayEnd = targetDate.endOf('day').valueOf();
     const dayLogs = await db.logs.where('timestamp').between(dayStart, dayEnd, true, true).toArray();
     
-    // 2. 運動ログだけを抽出
-    const exerciseLogs = dayLogs.filter(l => l.minutes > 0); // プラスが運動
-    if (exerciseLogs.length === 0) return; // 運動してなければ関係なし
+    // kcalがプラスなら運動 (以前のminutes > 0 相当)
+    // マイグレーション前でkcalが無い場合はminutes > 0で判定
+    const exerciseLogs = dayLogs.filter(l => (l.kcal !== undefined ? l.kcal > 0 : l.minutes > 0));
+    if (exerciseLogs.length === 0) return;
 
-    // 3. 全期間のログとチェックを取得（ストリーク判定用）
     const allLogs = await db.logs.toArray();
     const allChecks = await db.checks.toArray();
 
-    // 4. 「もしこの日にお酒を飲んでいたら」ボーナスは無効 (x1.0)
-    //    飲んでいなければ、過去のストリークに基づいた倍率を適用
+    // 飲酒ログがあるか (kcal < 0)
     const hasAlcohol = Calc.hasAlcoholLog(allLogs, targetTs);
     const streak = Calc.getStreakAtDate(targetTs, allLogs, allChecks);
-    
-    // 飲酒ありなら強制1.0、なしならストリーク倍率
     const multiplier = hasAlcohol ? 1.0 : Calc.getStreakMultiplier(streak);
 
     let updatedCount = 0;
     let bonusLost = false;
     let bonusGained = false;
 
-    // 5. 各運動ログを更新
     for (const log of exerciseLogs) {
-        // 運動データ定義を取得
         let exKey = log.exerciseKey;
         if (!exKey) {
             const entry = Object.entries(EXERCISE).find(([k, v]) => log.name.includes(v.label));
             if (entry) exKey = entry[0];
         }
-        const exData = EXERCISE[exKey] || EXERCISE['stepper']; // fallback
 
-        // 生の運動時間(rawMinutes)を使って再計算
-        const rawMinutes = log.rawMinutes || Math.round(Calc.stepperEq(log.minutes * Calc.burnRate(EXERCISE['stepper'].mets)) / Calc.burnRate(exData.mets)); // fallback calculation
+        // rawMinutes(実時間)から基準カロリーを計算
+        const rawMinutes = log.rawMinutes || 30; // fallback
         
-        // カロリー・時間を再計算
-        const baseKcal = Calc.burnRate(exData.mets) * rawMinutes;
+        const baseKcal = Calc.calculateExerciseKcal(rawMinutes, exKey);
         const bonusKcal = baseKcal * multiplier;
-        const newMinutes = Math.round(Calc.stepperEq(bonusKcal));
 
-        // メモの書き換え
         let newMemo = log.memo || '';
         const hasBonusText = newMemo.includes('Streak Bonus');
         
@@ -199,23 +162,24 @@ const recalcDailyExercises = async (targetTs) => {
             }
         } else {
             if (hasBonusText) {
-                // ボーナス表記を削除
                 newMemo = newMemo.replace(/🔥 Streak Bonus x[\d.]+/g, '').trim();
                 bonusLost = true;
             }
         }
 
-        // 値が変わる場合のみ更新
-        if (log.minutes !== newMinutes || log.memo !== newMemo) {
+        // kcalが存在しない、または値が違う場合に更新
+        // ※旧データの互換性のため、kcalフィールドを追加・更新する
+        const currentKcal = log.kcal !== undefined ? log.kcal : 0;
+
+        if (Math.abs(currentKcal - bonusKcal) > 1 || log.memo !== newMemo) {
             await db.logs.update(log.id, {
-                minutes: newMinutes,
+                kcal: bonusKcal,
                 memo: newMemo
             });
             updatedCount++;
         }
     }
 
-    // 6. ユーザーへの通知
     if (updatedCount > 0) {
         if (bonusLost) {
             UI.showMessage('飲酒により、本日の運動ボーナスが\n無効になりました... 😭', 'error');
@@ -225,7 +189,7 @@ const recalcDailyExercises = async (targetTs) => {
     }
 };
 
-// 【修正】飲酒ログ登録・更新ハンドラ
+// 【修正】飲酒ログ登録 (カロリー保存)
 const handleBeerSubmit = async (e) => {
     e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
@@ -269,7 +233,6 @@ const handleBeerSubmit = async (e) => {
         saveIsCustom = true;
         saveCustomType = type;
         saveRawAmount = ml;
-
     } else {
         const s = document.getElementById('beer-select').value;
         const z = document.getElementById('beer-size').value;
@@ -295,14 +258,16 @@ const handleBeerSubmit = async (e) => {
         saveIsCustom = false;
     }
 
-    const min = Calc.stepperEq(totalKcal);
-
+    // カロリーを保存（借金なのでマイナス）
+    // 【重要】minutesは古い互換性のため残すか、完全に廃止するかですが、
+    // ここでは新しい kcal フィールドを正として保存します。
     const logData = { 
         name: logName, 
         type: '借金', 
         style: logStyle, 
         size: logSize,
-        minutes: -Math.round(min), 
+        kcal: -totalKcal, // 【変更】minutes -> kcal (マイナス値)
+        minutes: -Math.round(min), // 【追加推奨】互換用サブ基準 (マイナス値)
         timestamp: ts, 
         brewery: brewery, 
         brand: brand, 
@@ -324,13 +289,10 @@ const handleBeerSubmit = async (e) => {
         UI.showMessage('飲酒を記録しました 🍺', 'success'); 
     }
     
-    // 【重要】飲酒記録後、同日の運動ボーナスを再評価する
     await recalcDailyExercises(ts);
-    
     toggleModal('beer-modal', false); 
     await refreshUI();
 
-    // 入力リセット
     document.getElementById('beer-brewery').value = '';
     document.getElementById('beer-brand').value = '';
     document.getElementById('beer-rating').value = '0';
@@ -349,6 +311,8 @@ const handleBeerSubmit = async (e) => {
     }
 };
 
+// --- 前半の handleBeerSubmit の続きから ---
+
 const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
@@ -356,12 +320,12 @@ const handleManualExerciseSubmit = async () => {
     
     if (!m || m <= 0) return UI.showMessage('正しい時間を入力してください', 'error'); 
     
-    // editingLogId を第5引数に渡す
+    // editingLogId を渡して更新に対応
     await recordExercise(document.getElementById('exercise-select').value, m, dateVal, applyBonus, editingLogId); 
     
     document.getElementById('manual-minutes').value=''; 
     toggleModal('manual-exercise-modal', false); 
-    editingLogId = null; // リセット
+    editingLogId = null; 
 };
 
 const handleCheckSubmit = async (e) => {
@@ -382,7 +346,6 @@ const handleCheckSubmit = async (e) => {
         timestamp: ts
     };
 
-    // 【修正】体重が入力されており、かつ正の数の場合のみ保存
     if(w) {
         const val = parseFloat(w);
         if (val > 0) {
@@ -410,44 +373,41 @@ const handleCheckSubmit = async (e) => {
     
     UI.showMessage('チェック完了！','success'); 
     toggleModal('check-modal', false); 
-    
     document.getElementById('is-dry-day').checked = false; 
     document.getElementById('check-weight').value = '';
     document.getElementById('drinking-section').classList.remove('hidden-area'); 
-    
     await refreshUI(); 
 };
 
 const deleteLog = async (id) => {
     if (!confirm('削除しますか？')) return;
     
-    // 【修正】削除前にログの日付とタイプを取得しておく
     const targetLog = await db.logs.get(id);
     const targetTs = targetLog ? targetLog.timestamp : null;
-    const isAlcohol = targetLog && targetLog.minutes < 0;
+    // 飲酒ログかどうかの判定 (kcalがマイナス、または互換性のためminutesがマイナス)
+    const isAlcohol = targetLog && (targetLog.kcal !== undefined ? targetLog.kcal < 0 : targetLog.minutes < 0);
 
     await db.logs.delete(id);
     UI.showMessage('削除しました', 'success');
 
-    // 【追加】飲酒ログを削除した場合、その日の運動ボーナスが復活する可能性があるため再計算
+    // 飲酒ログ削除時は運動ボーナスが復活する可能性があるため再計算
     if (targetLog && isAlcohol) {
         await recalcDailyExercises(targetTs);
     }
-
     await refreshUI();
 };
 
-// 一括削除ロジック
 const bulkDeleteLogs = async (ids) => {
     if (!ids || ids.length === 0) return;
     if (!confirm(`${ids.length}件のデータを削除しますか？\nこの操作は取り消せません。`)) return;
     
     try {
-        // 【修正】一括削除の際も、影響を受ける日付をリストアップ
         const logsToDelete = await db.logs.where('id').anyOf(ids).toArray();
         const affectedDates = new Set();
         logsToDelete.forEach(l => {
-            if (l.minutes < 0) { // 飲酒ログが含まれていたら
+            // 飲酒ログが含まれていたらその日付を記録
+            const isAlcohol = (l.kcal !== undefined ? l.kcal < 0 : l.minutes < 0);
+            if (isAlcohol) {
                 affectedDates.add(dayjs(l.timestamp).format('YYYY-MM-DD'));
             }
         });
@@ -455,7 +415,7 @@ const bulkDeleteLogs = async (ids) => {
         await db.logs.bulkDelete(ids);
         UI.showMessage(`${ids.length}件削除しました`, 'success');
         
-        // 【追加】影響を受ける各日付で再計算
+        // 影響を受けた日付のボーナスを再計算
         for (const dateStr of affectedDates) {
             await recalcDailyExercises(dayjs(dateStr).valueOf());
         }
@@ -468,29 +428,35 @@ const bulkDeleteLogs = async (ids) => {
     }
 };
 
-// 1. 既存の handleShare を「リッチなステータスシェア」に書き換え
 const handleShare = async () => {
-    // 最新のデータを取得して計算
     const logs = await db.logs.toArray();
     const checks = await db.checks.toArray();
-    
-    // ランク情報の取得
     const gradeData = Calc.getRecentGrade(checks, logs);
-    // Streak情報の取得
     const streak = Calc.getCurrentStreak(logs, checks);
     
-    // 貯金/借金残高の取得
-    const currentBalance = logs.reduce((sum, l) => sum + l.minutes, 0);
-    const balanceText = currentBalance >= 0 ? `+${currentBalance}分` : `${currentBalance}分`;
-    const balanceStatus = currentBalance >= 0 ? '貯金' : '借金';
+    // 【修正】カロリー収支から分換算を計算して表示
+    // kcalフィールドがない古いデータへの考慮: kcalがあればそれを使う、なければminutesから計算
+    const baseEx = Store.getBaseExercise();
+    const stepperMets = EXERCISE['stepper'].mets;
+    const stepperRate = Calc.burnRate(stepperMets);
 
-    // 投稿テキストの生成
-    const text = `現在: ${gradeData.label} (${gradeData.rank}) | 連続: ${streak}日🔥 | ${balanceStatus}: ${balanceText} | 飲んだら動く！健康管理アプリ #ノムトレ`;
+    const totalKcal = logs.reduce((sum, l) => {
+        if (l.kcal !== undefined) return sum + l.kcal;
+        // fallback for old data (minutes * stepperRate)
+        return sum + (l.minutes * stepperRate);
+    }, 0);
 
+    const balanceMinutes = Calc.convertKcalToMinutes(totalKcal, baseEx);
+    const balanceText = balanceMinutes >= 0 ? `+${balanceMinutes}分` : `${balanceMinutes}分`;
+    const balanceStatus = balanceMinutes >= 0 ? '貯金' : '借金';
+
+    // 基準運動のアイコンを取得
+    const exIcon = EXERCISE[baseEx] ? EXERCISE[baseEx].icon : '🏃‍♀️';
+
+    const text = `現在: ${gradeData.label} (${gradeData.rank}) | 連続: ${streak}日🔥 | ${balanceStatus}: ${balanceText} (${exIcon}換算) | 飲んだら動く！健康管理アプリ #ノムトレ`;
     shareToSocial(text);
 };
 
-// 2. 【新規】ログ詳細からのシェア機能
 const handleDetailShare = async () => {
     const modal = document.getElementById('log-detail-modal');
     if (!modal || !modal.dataset.id) return;
@@ -500,32 +466,34 @@ const handleDetailShare = async () => {
     if (!log) return;
 
     let text = '';
+    const baseEx = Store.getBaseExercise();
+    const baseExData = EXERCISE[baseEx] || EXERCISE['stepper'];
     
-    if (log.minutes < 0) {
-        // 🍺 飲酒ログの場合
-        const debtMins = Math.abs(log.minutes);
+    // kcal基準で判定 (古いデータ互換対応)
+    const isDebt = log.kcal !== undefined ? log.kcal < 0 : log.minutes < 0;
+    
+    if (isDebt) {
+        // 借金
+        const kcalVal = log.kcal !== undefined ? Math.abs(log.kcal) : Math.abs(log.minutes * Calc.burnRate(6.0));
+        const debtMins = Calc.convertKcalToMinutes(kcalVal, baseEx);
         const beerName = log.brand ? `${log.brand}` : (log.style || 'ビール');
         const star = log.rating > 0 ? '★'.repeat(log.rating) : '';
-        // 【修正】運動基準名を取得して表示
-        const baseEx = Store.getBaseExercise();
-        const baseExName = EXERCISE[baseEx] ? EXERCISE[baseEx].label : '運動';
         
-        text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExName}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
+        text = `🍺 飲みました: ${beerName} | 借金発生: ${baseExData.label}換算で${debtMins}分が追加されました...😱 ${star} #ノムトレ`;
     } else {
-        // 🏃‍♀️ 運動ログの場合
-        const earnedMins = log.minutes;
+        // 運動
+        const rawMins = log.rawMinutes || log.minutes; // rawがあればそれを、なければminutesを
+        // 獲得カロリー計算
+        const earnedKcal = log.kcal !== undefined ? log.kcal : (log.minutes * Calc.burnRate(6.0));
+        const earnedMins = Calc.convertKcalToMinutes(earnedKcal, baseEx);
         const exName = log.name.split(' ')[1] || log.name; 
         
-        // 【修正】具体的な運動基準名またはビール換算を表示
-        // ここでは「ユーザーが設定しているビールモード1」を基準にするのが分かりやすい
-        const modes = Store.getModes();
-        text = `🏃‍♀️ 運動しました: ${exName} (${log.rawMinutes}分) | 借金返済: ${modes.mode1}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
+        text = `🏃‍♀️ 運動しました: ${exName} (${rawMins}分) | 借金返済: ${baseExData.label}換算で${earnedMins}分相当を確保！🍺 #ノムトレ #飲んだら動く`;
     }
 
     shareToSocial(text);
 };
 
-// 3. 共通シェア関数 (Web Share API or Twitter)
 const shareToSocial = async (text) => {
     if (navigator.share) {
         try {
@@ -555,14 +523,12 @@ const handleTouchStart = (e) => {
 const handleTouchEnd = (e) => {
     const touchEndX = e.changedTouches[0].screenX;
     const touchEndY = e.changedTouches[0].screenY;
-    
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
 
     if (Math.abs(diffX) > 60 && Math.abs(diffY) < 50) {
         const currentTabId = document.querySelector('.tab-content.active').id;
         const currentIndex = TABS.indexOf(currentTabId);
-        
         if (diffX < 0) {
             if (currentIndex < TABS.length - 1) UI.switchTab(TABS[currentIndex + 1]);
         } else {
@@ -575,25 +541,27 @@ const handleTouchEnd = (e) => {
    Internal Logic & Functions
    ========================================================================== */
 
+// 【修正】運動記録関数 (カロリーベース)
 async function recordExercise(t, m, dateVal = null, applyBonus = true, existingId = null) { 
     const allLogs = await db.logs.toArray();
     const allChecks = await db.checks.toArray();
     
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
-
     const streak = Calc.getStreakAtDate(ts, allLogs, allChecks);
     const multiplier = applyBonus ? Calc.getStreakMultiplier(streak) : 1.0;
 
     const i = EXERCISE[t];
-    const baseKcal = Calc.burnRate(i.mets) * m;
+    
+    // 【重要】運動時間(分)から基準カロリーを計算して保存
+    const baseKcal = Calc.calculateExerciseKcal(m, t);
     const bonusKcal = baseKcal * multiplier;
-    const eq = Calc.stepperEq(bonusKcal);
-    const earnedMinutes = Math.round(eq);
-
-    // 更新の場合は、計算前の残高から「自分自身の古い値」を除外して計算する
-    let currentBalance = allLogs.reduce((sum, l) => {
+    
+    // 既存残高の計算 (kcalベース)
+    let currentKcalBalance = allLogs.reduce((sum, l) => {
         if (existingId && l.id === existingId) return sum;
-        return sum + l.minutes;
+        // 互換性考慮
+        const val = l.kcal !== undefined ? l.kcal : (l.minutes * Calc.burnRate(6.0));
+        return sum + val;
     }, 0);
 
     let bonusMemo = '';
@@ -603,26 +571,28 @@ async function recordExercise(t, m, dateVal = null, applyBonus = true, existingI
         bonusMemo = `(Bonusなし)`;
     }
 
+    // minutesはステッパー換算値として一応保存しておく（互換性のため）
+    const stepperEqMinutes = Math.round(Calc.stepperEq(bonusKcal));
+
     const logData = {
         name: `${i.icon} ${i.label}`, 
         type: '返済', 
-        minutes: earnedMinutes, 
-        rawMinutes: m, 
+        kcal: bonusKcal,        // 【新規】正確なカロリー
+        minutes: stepperEqMinutes, // 【維持】後方互換用ステッパー換算分
+        rawMinutes: m,          // 【維持】実際の運動時間
         timestamp: ts,
         memo: bonusMemo,
-        exerciseKey: t // 後で編集しやすいようにキーも保存しておく
+        exerciseKey: t
     };
 
     if (existingId) {
-        // 更新処理
         await db.logs.update(existingId, logData);
         UI.showMessage('記録を更新しました', 'success');
     } else {
-        // 新規追加
         await db.logs.add(logData);
         
         // 完済演出 (借金状態からプラスになった時のみ)
-        if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {
+        if (currentKcalBalance < 0 && (currentKcalBalance + bonusKcal) >= 0) {
             UI.showConfetti();
             UI.showMessage(`借金完済！おめでとう！🎉\n${i.label} ${m}分 記録完了`, 'success');
         } else {
@@ -644,11 +614,15 @@ const DataManager = {
         
         if(t === 'logs'){ 
             d = await db.logs.toArray();
-            d.sort((a,b) => a.timestamp - b.timestamp); 
-            c = "日時,内容,換算分(ステッパー基準),実運動時間(分),ブルワリー,銘柄,評価,メモ\n" + 
+            d.sort((a,b) => a.timestamp - b.timestamp);
+            
+            // CSVヘッダーにカロリー追加
+            c = "日時,内容,カロリー(kcal),換算分(ステッパー),実運動時間(分),ブルワリー,銘柄,評価,メモ\n" + 
                 d.map(r => {
                     const rawMin = r.rawMinutes !== undefined ? r.rawMinutes : '-';
-                    return `${new Date(r.timestamp).toLocaleString()},${e(r.name)},${r.minutes},${rawMin},${e(r.brewery)},${e(r.brand)},${r.rating || 0},${e(r.memo || '')}`;
+                    // kcalがない場合は補完
+                    const kcal = r.kcal !== undefined ? Math.round(r.kcal) : Math.round(r.minutes * Calc.burnRate(6.0));
+                    return `${new Date(r.timestamp).toLocaleString()},${e(r.name)},${kcal},${r.minutes},${rawMin},${e(r.brewery)},${e(r.brand)},${r.rating || 0},${e(r.memo || '')}`;
                 }).join('\n'); 
             n = "beer-log"; 
         } else { 
@@ -661,18 +635,14 @@ const DataManager = {
         DataManager.download(c, `nomutore-${n}.csv`, 'text/csv'); 
     },
 
-    // 【修正】設定(localStorage)も含めてJSON化するヘルパー
     getAllData: async () => {
         const logs = await db.logs.toArray();
         const checks = await db.checks.toArray();
-        
-        // localStorageの設定値を取得
         const settings = {};
         Object.values(APP.STORAGE_KEYS).forEach(key => {
             const val = localStorage.getItem(key);
             if (val !== null) settings[key] = val;
         });
-
         return { logs, checks, settings };
     },
 
@@ -693,63 +663,59 @@ const DataManager = {
         r.onload = async (e) => { 
             try { 
                 const d = JSON.parse(e.target.result); 
-                
-                // メッセージを少し変更
                 if(confirm('データを復元しますか？\n※既存のデータと重複しないログのみ追加されます。\n※設定は上書きされます。')){ 
                     
-                    // 1. 設定の復元 (ここは上書きでOK)
                     if (d.settings) {
                         Object.entries(d.settings).forEach(([k, v]) => localStorage.setItem(k, v));
                     }
 
-                    // --- ここから重複チェックロジック ---
-
-                    // 2. ログの復元 (Smart Merge)
                     if (d.logs && Array.isArray(d.logs)) {
-                        // 現在DBにある全ログのタイムスタンプを取得してSetにする（検索を高速化）
                         const existingLogs = await db.logs.toArray();
                         const existingTimestamps = new Set(existingLogs.map(l => l.timestamp));
 
-                        // 「既存DBに存在しないタイムスタンプ」のログだけを抽出
+                        // 重複チェック
                         const uniqueLogs = d.logs
                             .filter(l => !existingTimestamps.has(l.timestamp))
                             .map(l => {
-                                const { id, ...rest } = l; // IDを除外
+                                const { id, ...rest } = l; // ID除外
                                 return rest;
                             });
                         
-                        if (uniqueLogs.length > 0) {
-                            await db.logs.bulkAdd(uniqueLogs);
-                            console.log(`${uniqueLogs.length}件のログを追加しました`);
+                        // インポート時のデータ補完 (kcalがない場合)
+                        const migratedLogs = uniqueLogs.map(l => {
+                            if (l.kcal === undefined && l.minutes !== undefined) {
+                                // ステッパー(6.0METs)基準でカロリー復元
+                                const stepperRate = Calc.burnRate(6.0);
+                                l.kcal = l.minutes * stepperRate;
+                            }
+                            return l;
+                        });
+
+                        if (migratedLogs.length > 0) {
+                            await db.logs.bulkAdd(migratedLogs);
+                            console.log(`${migratedLogs.length}件のログを追加しました`);
                         }
                     }
 
-                    // 3. チェックの復元 (Smart Merge)
                     if (d.checks && Array.isArray(d.checks)) {
                         const existingChecks = await db.checks.toArray();
                         const existingCheckTimestamps = new Set(existingChecks.map(c => c.timestamp));
-
                         const uniqueChecks = d.checks
                             .filter(c => !existingCheckTimestamps.has(c.timestamp))
                             .map(c => {
-                                const { id, ...rest } = c; // IDを除外
+                                const { id, ...rest } = c;
                                 return rest;
                             });
-
                         if (uniqueChecks.length > 0) {
                             await db.checks.bulkAdd(uniqueChecks);
                         }
                     }
 
-                    // --- ここまで ---
-
-                    // UIへの設定反映
                     UI.updateModeSelector();
                     updateBeerSelectOptions(); 
                     UI.applyTheme(localStorage.getItem(APP.STORAGE_KEYS.THEME) || 'system');
-                    
                     await refreshUI(); 
-                    UI.showMessage('復元しました (重複はスキップされました)','success'); 
+                    UI.showMessage('復元しました (重複はスキップ)','success'); 
                 } 
             } catch(err) { 
                 console.error(err);
@@ -768,104 +734,64 @@ const DataManager = {
     }
 };
 
-// 【修正】経過時間を表示する関数（累積時間を考慮）
 const updTm = () => { 
     const stStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
     const accStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
-    
     let totalMs = 0;
-    
-    // 累積時間（一時停止前の時間）
     if (accStr) totalMs += parseInt(accStr, 10);
-    
-    // 現在進行中の時間
-    if (stStr) {
-        totalMs += (Date.now() - parseInt(stStr, 10));
-    }
+    if (stStr) totalMs += (Date.now() - parseInt(stStr, 10));
 
     const mm = Math.floor(totalMs / 60000).toString().padStart(2, '0');
     const ss = Math.floor((totalMs % 60000) / 1000).toString().padStart(2, '0');
-    
     const display = document.getElementById('timer-display');
     if(display) display.textContent = `${mm}:${ss}`;
 };
 
-// 【修正】タイマー制御ロジック（一時停止対応版）
 const timerControl = {
-    // 計測開始
     start: () => {
         if (StateManager.timerId) return;
-        
-        // 開始時刻を保存
         localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, Date.now());
-        
-        // UI更新
         timerControl.updateButtons('running');
-        
-        // タイマー始動
         updTm();
         StateManager.setTimerId(setInterval(updTm, 1000));
     },
-
-    // 一時停止
     pause: () => {
         if (StateManager.timerId) {
             clearInterval(StateManager.timerId);
             StateManager.setTimerId(null);
         }
-
         const stStr = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
         if (stStr) {
             const currentSession = Date.now() - parseInt(stStr, 10);
             const prevAcc = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED) || '0', 10);
-            
-            // 累積時間に加算して保存
             localStorage.setItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED, prevAcc + currentSession);
-            // 開始時刻はクリア
             localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
         }
-
         timerControl.updateButtons('paused');
-        updTm(); // 表示を確定
+        updTm();
     },
-
-    // 再開
     resume: () => {
         if (StateManager.timerId) return;
-
-        // 新しいセッション開始時刻を保存
         localStorage.setItem(APP.STORAGE_KEYS.TIMER_START, Date.now());
-        
         timerControl.updateButtons('running');
-        
         updTm();
         StateManager.setTimerId(setInterval(updTm, 1000));
     },
-
-    // 終了して保存
     stop: async () => {
-        // まず一時停止処理を行って全時間をACCUMULATEDに集約
         timerControl.pause();
-
         const totalMs = parseInt(localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED) || '0', 10);
         const m = Math.round(totalMs / 60000);
-
-        // データクリア
         localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
         localStorage.removeItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
-
-        // UIリセット
         timerControl.updateButtons('initial');
         document.getElementById('timer-display').textContent = '00:00';
-
         if (m > 0) {
+            // 保存時にセレクトボックスの値を使う
             await recordExercise(document.getElementById('exercise-select').value, m);
         } else {
             UI.showMessage('1分未満のため記録せず', 'error');
         }
     },
-
-    // UI状態管理
     updateButtons: (state) => {
         const startBtn = document.getElementById('start-stepper-btn');
         const manualBtn = document.getElementById('manual-record-btn');
@@ -873,42 +799,26 @@ const timerControl = {
         const resumeBtn = document.getElementById('resume-stepper-btn');
         const stopBtn = document.getElementById('stop-stepper-btn');
         const statusText = document.getElementById('timer-status');
-
-        // 全て隠す
         [startBtn, manualBtn, pauseBtn, resumeBtn, stopBtn].forEach(el => el?.classList.add('hidden'));
 
         if (state === 'running') {
             pauseBtn?.classList.remove('hidden');
             stopBtn?.classList.remove('hidden');
-            if(statusText) {
-                statusText.textContent = '計測中...';
-                statusText.className = 'text-xs text-green-600 font-bold mb-1 animate-pulse';
-            }
+            if(statusText) { statusText.textContent = '計測中...'; statusText.className = 'text-xs text-green-600 font-bold mb-1 animate-pulse'; }
         } else if (state === 'paused') {
             resumeBtn?.classList.remove('hidden');
             stopBtn?.classList.remove('hidden');
-            if(statusText) {
-                statusText.textContent = '一時停止中';
-                statusText.className = 'text-xs text-yellow-500 font-bold mb-1';
-            }
-        } else { // initial
+            if(statusText) { statusText.textContent = '一時停止中'; statusText.className = 'text-xs text-yellow-500 font-bold mb-1'; }
+        } else { 
             startBtn?.classList.remove('hidden');
             manualBtn?.classList.remove('hidden');
-            if(statusText) {
-                statusText.textContent = 'READY';
-                statusText.className = 'text-xs text-gray-400 mt-1 font-medium';
-            }
+            if(statusText) { statusText.textContent = 'READY'; statusText.className = 'text-xs text-gray-400 mt-1 font-medium'; }
         }
     },
-    
-    // アプリ起動時の状態復元
     restoreState: () => {
         const st = localStorage.getItem(APP.STORAGE_KEYS.TIMER_START);
         const acc = localStorage.getItem(APP.STORAGE_KEYS.TIMER_ACCUMULATED);
-
         if (st) {
-            // 計測中だった場合
-            // 24時間以上経過していたらリセット
             const elapsed = Date.now() - parseInt(st, 10);
             if (elapsed > ONE_DAY_MS) {
                 localStorage.removeItem(APP.STORAGE_KEYS.TIMER_START);
@@ -919,7 +829,6 @@ const timerControl = {
             timerControl.start();
             return true;
         } else if (acc) {
-            // 一時停止中だった場合
             timerControl.updateButtons('paused');
             updTm();
             return true;
@@ -928,7 +837,9 @@ const timerControl = {
     }
 };
 
+// 【新規】データ移行関数：古いminutes基準のログをkcal基準に変換してDB更新
 async function migrateData() {
+    // 1. LocalStorageからの移行 (既存ロジック)
     const oldLogs = localStorage.getItem(APP.STORAGE_KEYS.LOGS);
     const oldChecks = localStorage.getItem(APP.STORAGE_KEYS.CHECKS);
     if (oldLogs) {
@@ -939,36 +850,29 @@ async function migrateData() {
         try { const checks = JSON.parse(oldChecks); if (checks.length > 0) await db.checks.bulkAdd(checks); } catch (e) { console.error(e); }
         localStorage.removeItem(APP.STORAGE_KEYS.CHECKS);
     }
+
+    // 2. DBスキーマ変更に伴うデータ変換 (minutes -> kcal)
+    const logs = await db.logs.toArray();
+    // kcalカラムがないデータを抽出
+    const needsUpdate = logs.filter(l => l.kcal === undefined && l.minutes !== undefined);
+    
+    if (needsUpdate.length > 0) {
+        console.log(`Migrating ${needsUpdate.length} logs to kcal schema...`);
+        // ステッパー基準(6.0METs)で換算して保存
+        const stepperRate = Calc.burnRate(6.0);
+        
+        // 一括更新
+        for (const log of needsUpdate) {
+            const kcal = log.minutes * stepperRate;
+            await db.logs.update(log.id, { kcal: kcal });
+        }
+        console.log('Migration completed.');
+        // 通知するとユーザーが驚くかもしれないので、初回のみconsole.logにとどめるか、さりげなく出す
+        // UI.showMessage('データを新形式(カロリー)に変換しました', 'success'); 
+    }
 }
 
-const showSwipeCoachMark = () => {
-    const KEY = 'nomutore_seen_swipe_hint';
-    if (localStorage.getItem(KEY)) return;
-
-    const el = document.getElementById('swipe-coach-mark');
-    if (!el) return;
-
-    // 表示
-    el.classList.remove('hidden');
-    // フェードイン
-    requestAnimationFrame(() => el.classList.remove('opacity-0'));
-
-    // 3.5秒後に消す
-    setTimeout(() => {
-        el.classList.add('opacity-0');
-        setTimeout(() => {
-            el.classList.add('hidden');
-            localStorage.setItem(KEY, 'true');
-        }, 500);
-    }, 3500);
-};
-
-// -----------------------------------------------------
-// Init & Event Bindings
-// -----------------------------------------------------
-
 function bindEvents() {
-    // オプショナルチェーン (?.) を追加して、要素が存在しない場合のエラーを防止
     document.getElementById('btn-open-help')?.addEventListener('click', UI.openHelp);
     document.getElementById('btn-open-settings')?.addEventListener('click', UI.openSettings);
     
@@ -982,26 +886,21 @@ function bindEvents() {
         swipeArea.addEventListener('touchend', handleTouchEnd);
     }
 
-    // 追加: モード切替ドロップダウン
     document.getElementById('home-mode-select')?.addEventListener('change', (e) => {
         UI.setBeerMode(e.target.value);
     });
 
-    // 追加: ランクカードクリックで健康チェックを開く
     document.getElementById('liver-rank-card')?.addEventListener('click', async () => {
         const todayStr = dayjs().format('YYYY-MM-DD');
         const checks = await db.checks.toArray();
         const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === todayStr);
-        
-        if (target) editingCheckId = target.id;
-        else editingCheckId = null;
-        
+        if (target) editingCheckId = target.id; else editingCheckId = null;
         UI.openCheckModal(target);
     });
 
     document.getElementById('chart-filters')?.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
-            StateManager.setChartRange(e.target.dataset.range); // StateManagerを使用
+            StateManager.setChartRange(e.target.dataset.range); 
             refreshUI();
         }
     });
@@ -1068,14 +967,12 @@ function bindEvents() {
 
     document.getElementById('log-list')?.addEventListener('click', async (e) => {
         if (e.target.classList.contains('log-checkbox')) return; 
-
         const deleteBtn = e.target.closest('.delete-log-btn');
         if (deleteBtn) {
             e.stopPropagation();
             deleteLog(parseInt(deleteBtn.dataset.id));
             return;
         }
-
         const row = e.target.closest('.log-item-row');
         if (row) {
             const id = parseInt(row.dataset.id);
@@ -1101,19 +998,17 @@ function bindEvents() {
             if (log) {
                 editingLogId = id;
                 toggleModal('log-detail-modal', false);
-                
-                // 借金(マイナス)ならビール、返済(プラス)なら運動
-                if (log.minutes < 0) {
+                // kcalがマイナスならビール、プラスなら運動
+                const isDebt = log.kcal !== undefined ? log.kcal < 0 : log.minutes < 0;
+                if (isDebt) {
                     UI.openBeerModal(log);
                 } else {
-                    // 運動モーダルを編集モードで開く
                     UI.openManualInput(log);
                 }
             }
         }
     });
 
-    // 【追加】運動セレクトボックスを変えたらラベルも変える (bindEvents内の適当な場所に追加)
     document.getElementById('exercise-select')?.addEventListener('change', function() {
         const nameEl = document.getElementById('manual-exercise-name');
         if (nameEl && EXERCISE[this.value]) {
@@ -1139,21 +1034,18 @@ function bindEvents() {
         }
     });
 
-    // 【追加】ヒートマップ期間移動イベント (安全対策済み)
     document.getElementById('heatmap-prev')?.addEventListener('click', () => {
-        StateManager.incrementHeatmapOffset(); // StateManagerを使用
+        StateManager.incrementHeatmapOffset(); 
         refreshUI();
     });
 
     document.getElementById('heatmap-next')?.addEventListener('click', () => {
-        // StateManagerを使用
         if (StateManager.heatmapOffset > 0) {
             StateManager.decrementHeatmapOffset();
             refreshUI();
         }
     });
 
-    // 【追加】全データ削除イベント (安全対策済み)
     document.getElementById('btn-reset-all')?.addEventListener('click', async () => {
         if(confirm('本当に全てのデータを削除して初期化しますか？\nこの操作は取り消せません。')) {
             if(confirm('これまでの記録が全て消えます。よろしいですか？')) {
@@ -1171,14 +1063,12 @@ function bindEvents() {
         }
     });
 
-    // ヒートマップのクリックイベント委譲 (安全対策済み)
     document.getElementById('heatmap-grid')?.addEventListener('click', async (e) => {
         const cell = e.target.closest('.heatmap-cell');
         if (cell && cell.dataset.date) {
             const dateStr = cell.dataset.date;
             const checks = await db.checks.toArray();
             const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === dateStr);
-            
             if (target) {
                 editingCheckId = target.id;
                 UI.openCheckModal(target);
@@ -1189,16 +1079,12 @@ function bindEvents() {
         }
     });
 
-    // ホーム画面の健康チェック編集ボタン (安全対策済み)
     document.getElementById('check-status')?.addEventListener('click', async (e) => {
         if (e.target.closest('#btn-edit-check') || e.target.closest('#btn-record-check')) {
             const todayStr = dayjs().format('YYYY-MM-DD');
             const checks = await db.checks.toArray();
             const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === todayStr);
-            
-            if (target) editingCheckId = target.id;
-            else editingCheckId = null;
-            
+            if (target) editingCheckId = target.id; else editingCheckId = null;
             UI.openCheckModal(target);
         }
     });
@@ -1226,17 +1112,10 @@ function bindEvents() {
         }
     });
     
-    // 【追加】システム（端末）のテーマ変更をリアルタイムで監視
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        // 現在のアプリ設定を取得
         const currentSetting = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
-        
-        // 設定が「端末に合わせる(system)」の場合のみ、自動で切り替える
         if (currentSetting === 'system') {
-            // テーマを再適用（UI.applyTheme内で再度システム設定を判定してくれる）
             UI.applyTheme('system');
-            
-            // 重要：グラフの色（文字やグリッド線）を更新するために画面を再描画する
             refreshUI();
         }
     });
@@ -1248,12 +1127,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem(APP.STORAGE_KEYS.THEME) || APP.DEFAULTS.THEME;
     UI.applyTheme(savedTheme);
 
-    // イベント登録を実行 (エラーが出ても後続処理が走るように修正済み)
     bindEvents();
     
+    // 【重要】起動時にデータ形式移行を実行
     await migrateData();
 
-    // Select options setup
     const exSelect = document.getElementById('exercise-select'); 
     if (exSelect) {
         Object.keys(EXERCISE).forEach(k => { 
@@ -1300,15 +1178,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     UI.setBeerMode('mode1');
     updateBeerSelectOptions(); 
     
-    // 【修正】新しい復元ロジックを使用
     const isRestored = timerControl.restoreState();
     if(isRestored) { 
         UI.switchTab('tab-record'); 
     } else { 
         UI.switchTab('tab-home'); 
         
-        // 【追加】初回ユーザー判定 & 設定画面オートオープン
-        // localStorageに身長・体重のキーがまだない場合、初回とみなす
         if (!localStorage.getItem(APP.STORAGE_KEYS.WEIGHT)) {
             // 初回ユーザー設定
             setTimeout(() => {
@@ -1316,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 UI.showMessage('👋 ようこそ！まずはプロフィールと\n基準にする運動を設定しましょう！', 'success');
             }, 800);
         } else {
-            // 【追加】既存ユーザー、かつ設定済みならコーチマークを表示
+            // 既存ユーザー向けコーチマーク
             setTimeout(() => {
                 showSwipeCoachMark();
             }, 1000);

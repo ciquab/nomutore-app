@@ -2,8 +2,11 @@ import { APP } from './constants.js';
 
 // DexieはHTMLで読み込んでいるため window.Dexie として存在します
 export const db = new Dexie("NomutoreDB");
-db.version(1).stores({
-    logs: '++id, timestamp, type, name',
+
+// Version 2: カロリー基準へ移行
+// ※既存データは互換性がなくなるため、アプリ起動時にリセット処理が必要です
+db.version(2).stores({
+    logs: '++id, timestamp, type, name, kcal', // minutes ではなく kcal を基準にする
     checks: '++id, timestamp'
 });
 
@@ -23,15 +26,10 @@ export const Store = {
     getDefaultRecordExercise: () => localStorage.getItem(APP.STORAGE_KEYS.DEFAULT_RECORD_EXERCISE) || APP.DEFAULTS.DEFAULT_RECORD_EXERCISE
 };
 
-// 外部アプリ連携など
 export const ExternalApp = {
     searchUntappd: (term) => {
         const query = encodeURIComponent(term);
-        // アプリスキーム(untappd://)の強制起動は廃止し、Web URLに統一
-        // OSが対応していれば、このHTTPSリンクから自動的にアプリが起動します
         const webUrl = `https://untappd.com/search?q=${query}`;
-        
-        // 別タブで開く
         window.open(webUrl, '_blank');
     }
 };
