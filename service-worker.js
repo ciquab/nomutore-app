@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomutore-v72'; // 更新時はここを変更
+const CACHE_NAME = 'nomutore-v73'; // 更新時はここを変更
 
 // 1. アプリ本体のファイル（確実にキャッシュする）
 // ※外部URL(CDN)はここには含めないでください
@@ -79,6 +79,7 @@ self.addEventListener('fetch', (event) => {
     );
 
 });
+
 
 
 
