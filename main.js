@@ -47,28 +47,41 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // constants.js の CALORIES.STYLES のキーと整合性を取った定義
 const STYLE_SPECS = {
-    'バーレイワイン': { abv: 10.0, type: 'sweet' },
-    'ダブルIPA (DIPA)': { abv: 8.5, type: 'sweet' },
-    'ベルジャン・トリペル': { abv: 9.0, type: 'sweet' },
-    'Hazy IPA': { abv: 7.0, type: 'sweet' },
-    'IPA (West Coast)': { abv: 6.5, type: 'sweet' },
-    'Hazyペールエール': { abv: 6.0, type: 'sweet' },
+    // --- ラガー ---
+    '国産ピルスナー': { abv: 5.0, type: 'sweet' },      // Renamed
+    '糖質オフ/新ジャンル': { abv: 4.0, type: 'dry' },   // Renamed
+    'ピルスナー': { abv: 5.0, type: 'sweet' },
+    'ドルトムンター': { abv: 5.5, type: 'sweet' },
+    'シュバルツ': { abv: 5.0, type: 'sweet' },
+
+    // --- エール ---
+    'ゴールデンエール': { abv: 5.0, type: 'sweet' },    // New
     'ペールエール': { abv: 5.5, type: 'sweet' },
     'ジャパニーズエール': { abv: 5.5, type: 'sweet' },
-    'アンバーエール': { abv: 5.5, type: 'sweet' },
-    'セッションIPA': { abv: 4.5, type: 'sweet' },
-    'スタウト': { abv: 6.0, type: 'sweet' },
-    'ポーター': { abv: 5.5, type: 'sweet' },
-    'シュバルツ': { abv: 5.0, type: 'sweet' },
     'ヴァイツェン': { abv: 5.0, type: 'sweet' },
     'ベルジャンホワイト': { abv: 5.0, type: 'sweet' },
     'セゾン': { abv: 6.0, type: 'sweet' },
-    '大手ラガー': { abv: 5.0, type: 'sweet' },
-    'ドルトムンター': { abv: 5.5, type: 'sweet' },
-    'ピルスナー': { abv: 5.0, type: 'sweet' },
+
+    // --- IPA ---
+    'セッションIPA': { abv: 4.5, type: 'sweet' },
+    'IPA (West Coast)': { abv: 6.5, type: 'sweet' },
+    'Hazy IPA': { abv: 7.0, type: 'sweet' },
+    'Hazyペールエール': { abv: 6.0, type: 'sweet' },
+    'ダブルIPA (DIPA)': { abv: 8.5, type: 'sweet' },
+    'アンバーエール': { abv: 5.5, type: 'sweet' }, // constantsにはないが念のため残すか、削除してもよい
+
+    // --- 黒 ---
+    'ポーター': { abv: 5.5, type: 'sweet' },
+    'スタウト': { abv: 6.0, type: 'sweet' },
+    'インペリアルスタウト': { abv: 9.0, type: 'sweet' }, // New
+
+    // --- ハイアルコール ---
+    'ベルジャン・トリペル': { abv: 9.0, type: 'sweet' },
+    'バーレイワイン': { abv: 10.0, type: 'sweet' },
+
+    // --- その他 ---
     'サワーエール': { abv: 5.0, type: 'sweet' },
-    'フルーツビール': { abv: 5.0, type: 'sweet' },
-    '糖質オフ/第三のビール': { abv: 4.0, type: 'dry' }
+    'フルーツビール': { abv: 5.0, type: 'sweet' }
 };
 
 // Helper: 日付文字列(YYYY-MM-DD)を、その日の12:00のTimestampに変換

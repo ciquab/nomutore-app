@@ -457,22 +457,24 @@ export const UI = {
     },
 
     setBeerMode: (mode) => {
-        StateManager.setBeerMode(mode); // StateManagerを使用
+        StateManager.setBeerMode(mode);
         const lBtn = DOM.elements['btn-mode-1'];
         const hBtn = DOM.elements['btn-mode-2'];
         const liq = DOM.elements['tank-liquid'];
         
+        // 【修正】スタイル定義: truncate と max-w を追加して一行に収める
+        const commonClasses = "px-2 py-2 rounded-md text-xs font-bold transition-all min-w-[90px] max-w-[140px] truncate whitespace-nowrap";
         const activeClass = "bg-indigo-600 text-white shadow-sm";
         const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700";
 
         requestAnimationFrame(() => {
             if (mode === 'mode1') {
-                if(lBtn) lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
-                if(hBtn) hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
+                if(lBtn) lBtn.className = `${commonClasses} ${activeClass}`;
+                if(hBtn) hBtn.className = `${commonClasses} ${inactiveClass}`;
                 if(liq) { liq.classList.remove('mode2'); liq.classList.add('mode1'); }
             } else {
-                if(hBtn) hBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${activeClass}`;
-                if(lBtn) lBtn.className = `px-4 py-2 rounded-md text-xs font-bold transition-all min-w-[100px] ${inactiveClass}`;
+                if(hBtn) hBtn.className = `${commonClasses} ${activeClass}`;
+                if(lBtn) lBtn.className = `${commonClasses} ${inactiveClass}`;
                 if(liq) { liq.classList.remove('mode1'); liq.classList.add('mode2'); }
             }
         });
