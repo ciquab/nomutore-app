@@ -375,12 +375,15 @@ const handleCheckSubmit = async (e) => {
         timestamp: ts
     };
 
-    if(w) {
+    // ★ 体重はここで一元処理
+    if (w === '') {
+        entry.weight = null; // ← 削除の意思表示
+    } else {
         const val = parseFloat(w);
         if (val > 0) {
             entry.weight = val;
         } else {
-             return UI.showMessage('体重は正の数で入力してください', 'error');
+            return UI.showMessage('体重は正の数で入力してください', 'error');
         }
     }
 
@@ -388,9 +391,10 @@ const handleCheckSubmit = async (e) => {
         await db.checks.update(editingCheckId, entry);
         editingCheckId = null;
     } else {
-        const existing = (await db.checks.toArray()).find(c => Calc.isSameDay(c.timestamp, ts));
+        const existing = (await db.checks.toArray())
+            .find(c => Calc.isSameDay(c.timestamp, ts));
         if (existing) {
-            if(confirm('この日付のデータは既に存在します。上書きしますか？')) {
+            if (confirm('この日付のデータは既に存在します。上書きしますか？')) {
                 await db.checks.update(existing.id, entry);
             } else {
                 return;
@@ -1309,6 +1313,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
 
 
