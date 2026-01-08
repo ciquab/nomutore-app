@@ -446,6 +446,8 @@ function getCheckMessage(check, logs) {
     } else { return (check.waistEase && check.footLightness) ? '休肝日＋絶好調！✨' : '休肝日 (体調イマイチ)🍵'; }
 }
 
+// ui.js
+
 function renderWeeklyAndHeatUp(logs, checks) {
     const streak = Calc.getCurrentStreak(logs, checks);
     const multiplier = Calc.getStreakMultiplier(streak);
@@ -469,10 +471,11 @@ function renderWeeklyAndHeatUp(logs, checks) {
     
     const fragment = document.createDocumentFragment();
     const today = dayjs();
-    let dryCountInWeek = 0;
+    let dryCountInWeek = 0; // 週間の「休肝日」カウント
 
     for (let i = 6; i >= 0; i--) {
         const d = today.subtract(i, 'day');
+        // logic.js で判定されたステータスを取得
         const status = Calc.getDayStatus(d, logs, checks);
         const isToday = i === 0;
 
@@ -480,16 +483,29 @@ function renderWeeklyAndHeatUp(logs, checks) {
         let content = "";
 
         if (isToday) {
+            // 今日
             elClass += "border-2 border-indigo-500 bg-white dark:bg-gray-700 text-indigo-500 dark:text-indigo-300 font-bold relative transform scale-110";
             content = "今";
-        } else if (status === 'dry') {
+        } 
+        // ▼▼▼ 修正: 休肝日 (緑) ▼▼▼
+        else if (status === 'rest' || status === 'rest_exercise') {
             elClass += "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-300 border border-green-200 dark:border-green-800";
             content = "🍵";
             dryCountInWeek++;
-        } else if (status === 'drink') {
+        } 
+        // ▼▼▼ 追加: 完済 (青) - 飲んだけど運動で返済した日 ▼▼▼
+        else if (status === 'drink_exercise_success') {
+            elClass += "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
+            content = "🏃"; // 完済アイコン
+            // ※もし完済も「成功日数」に含めたい場合はここで dryCountInWeek++; してください
+        }
+        // ▼▼▼ 修正: 飲酒 (赤) ▼▼▼
+        else if (status === 'drink' || status === 'drink_exercise') {
             elClass += "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800";
             content = "🍺";
-        } else {
+        } 
+        // その他 (記録なし等)
+        else {
             elClass += "bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 border border-gray-200 dark:border-gray-600";
             content = "-";
         }
@@ -505,6 +521,7 @@ function renderWeeklyAndHeatUp(logs, checks) {
     container.innerHTML = '';
     container.appendChild(fragment);
 
+    // 週間評価メッセージの更新
     const msgEl = DOM.elements['weekly-status-text'] || document.getElementById('weekly-status-text');
     if (msgEl) {
         if (dryCountInWeek >= 4) msgEl.textContent = "Excellent! 🌟";
@@ -727,7 +744,14 @@ export const UI = {
         if (submitBtn) submitBtn.id = 'beer-submit-btn';
 
         if (dateEl) dateEl.value = UI.getTodayString();
-        if (styleSelect) styleSelect.value = '';
+        if (styleSelect) {
+            const modes = Store.getModes();
+            // ホーム画面がMode1ならMode1のビール、Mode2ならMode2のビールをセット
+            const currentMode = StateManager.beerMode; 
+            const defaultStyle = currentMode === 'mode1' ? modes.mode1 : modes.mode2;
+            
+            styleSelect.value = defaultStyle || ''; 
+        }
         if (sizeSelect) sizeSelect.value = '350';
         if (countInput) countInput.value = '1';
         if (abvInput) abvInput.value = '5.0';
@@ -1312,18 +1336,6 @@ export const updateBeerSelectOptions = () => {
         s.value = currentVal;
     } else {
         s.value = StateManager.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
-    }
-
-    // 【修正】存在しないタブIDの操作を削除し、セレクトボックス横のラベル更新を復活
-    const labelEl = document.getElementById('beer-select-mode-label');
-    const baseEx = Store.getBaseExercise();
-    const exData = EXERCISE[baseEx] || EXERCISE['stepper'];
-    
-    // 現在のモード（ビール換算など）を表示
-    if(labelEl) {
-        // 現在選択中のモード名を取得
-        const modeKey = StateManager.beerMode === 'mode1' ? modes.mode1 : modes.mode2;
-        labelEl.textContent = `${modeKey} 換算`;
     }
 };
 

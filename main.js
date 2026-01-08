@@ -195,7 +195,7 @@ const recalcDailyExercises = async (targetTs) => {
     }
 };
 
-// 【修正】飲酒ログ登録 (カロリー保存)
+// 【修正版】飲酒ログ登録 (カロリー保存 + 同日の休肝日設定解除)
 const handleBeerSubmit = async (e) => {
     e.preventDefault();
     const dateVal = document.getElementById('beer-date').value;
@@ -266,16 +266,13 @@ const handleBeerSubmit = async (e) => {
     
     const min = Calc.stepperEq(totalKcal);
     
-    // カロリーを保存（借金なのでマイナス）
-    // 【重要】minutesは古い互換性のため残すか、完全に廃止するかですが、
-    // ここでは新しい kcal フィールドを正として保存します。
     const logData = { 
         name: logName, 
         type: '借金', 
         style: logStyle, 
         size: logSize,
-        kcal: -totalKcal, // 【変更】minutes -> kcal (マイナス値)
-        minutes: -Math.round(min), // 【追加推奨】互換用サブ基準 (マイナス値)
+        kcal: -totalKcal, 
+        minutes: -Math.round(min), 
         timestamp: ts, 
         brewery: brewery, 
         brand: brand, 
@@ -297,6 +294,16 @@ const handleBeerSubmit = async (e) => {
         UI.showMessage('飲酒を記録しました 🍺', 'success'); 
     }
     
+    // ▼▼▼ 追加修正ここから ▼▼▼
+    // 同日の休肝日設定をチェックし、もしあれば解除する
+    const allChecks = await db.checks.toArray();
+    const targetCheck = allChecks.find(c => Calc.isSameDay(c.timestamp, ts));
+    
+    if (targetCheck && targetCheck.isDryDay) {
+        await db.checks.update(targetCheck.id, { isDryDay: false });
+    }
+    // ▲▲▲ 追加修正ここまで ▲▲▲
+
     await recalcDailyExercises(ts);
     toggleModal('beer-modal', false); 
     await refreshUI();
@@ -318,8 +325,6 @@ const handleBeerSubmit = async (e) => {
         ExternalApp.searchUntappd(searchTerm);
     }
 };
-
-// --- 前半の handleBeerSubmit の続きから ---
 
 const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
