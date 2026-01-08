@@ -614,6 +614,23 @@ function renderChart(logs, checks) {
         const minus = dataArray.map(d => d.minus);
         const bal = dataArray.map(d => d.bal);
         const weight = dataArray.map(d => d.weight);
+        const validWeights = weight.filter(w => typeof w === 'number');
+
+let weightMin;
+let weightMax;
+
+if (validWeights.length > 0) {
+    const minW = Math.min(...validWeights);
+    const maxW = Math.max(...validWeights);
+
+    weightMin = Math.floor(minW - 2); // 下に余白
+    weightMax = Math.ceil(maxW + 2);  // 上に余白
+
+    weightMin = Math.max(weightMin, 30); // 安全装置
+} else {
+    weightMin = 40;
+    weightMax = 90;
+}
 
         if (StateManager.chart) StateManager.chart.destroy();
         
@@ -690,8 +707,8 @@ function renderChart(logs, checks) {
                         grid: { drawOnChartArea: false },
                         title: { display: true, text: '体重 (kg)', color: textColor },
                         ticks: { color: textColor },
-                        suggestedMin: 50,
-                        suggestedMax: 100
+                        min: 50,
+                        max: 100
                     }
                 }, 
                 plugins: { 
@@ -1519,3 +1536,4 @@ export const refreshUI = async () => {
     renderHeatmap(checks, logs);
 
 };
+
