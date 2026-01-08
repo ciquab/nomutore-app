@@ -127,7 +127,7 @@ const handleSaveSettings = () => {
         localStorage.setItem(APP.STORAGE_KEYS.DEFAULT_RECORD_EXERCISE, de);
         
         toggleModal('settings-modal', false);
-        UI.updateModeButtons();
+        UI.updateModeSelector();
         updateBeerSelectOptions(); 
         const recordSelect = document.getElementById('exercise-select');
         if (recordSelect) recordSelect.value = de;
@@ -787,8 +787,22 @@ function bindEvents() {
         swipeArea.addEventListener('touchend', handleTouchEnd);
     }
 
-    document.getElementById('btn-mode-1')?.addEventListener('click', () => UI.setBeerMode('mode1'));
-    document.getElementById('btn-mode-2')?.addEventListener('click', () => UI.setBeerMode('mode2'));
+    // 追加: モード切替ドロップダウン
+    document.getElementById('home-mode-select')?.addEventListener('change', (e) => {
+        UI.setBeerMode(e.target.value);
+    });
+
+    // 追加: ランクカードクリックで健康チェックを開く
+    document.getElementById('liver-rank-card')?.addEventListener('click', async () => {
+        const todayStr = dayjs().format('YYYY-MM-DD');
+        const checks = await db.checks.toArray();
+        const target = checks.find(c => dayjs(c.timestamp).format('YYYY-MM-DD') === todayStr);
+        
+        if (target) editingCheckId = target.id;
+        else editingCheckId = null;
+        
+        UI.openCheckModal(target);
+    });
 
     document.getElementById('chart-filters')?.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
@@ -1083,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setVal('age-input', p.age);
     setVal('gender-input', p.gender);
 
-    UI.updateModeButtons();
+    UI.updateModeSelector();
     document.getElementById('mode-selector')?.classList.remove('opacity-0');
 
     UI.setBeerMode('mode1');

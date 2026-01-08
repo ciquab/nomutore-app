@@ -119,11 +119,17 @@
                 <h2 class="text-xl font-black text-gray-800 dark:text-gray-100 mb-4 px-2 flex items-center gap-2">🍺 現在の状況</h2>
                 
                 <div class="flex justify-center mb-6 opacity-0 transition-opacity duration-500" id="mode-selector">
-                    <div class="bg-gray-100 dark:bg-gray-800 p-1 rounded-lg flex gap-1">
-                        <button id="btn-mode-1" class="px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white min-w-[100px]"></button>
-                        <button id="btn-mode-2" class="px-4 py-2 rounded-md text-xs font-bold transition-all text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 min-w-[100px]"></button>
-                    </div>
-                </div>
+    <div class="bg-white dark:bg-gray-800 py-2 px-5 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-3">
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">基準</span>
+        <div class="relative group">
+            <select id="home-mode-select" class="appearance-none bg-transparent font-bold text-xs text-indigo-600 dark:text-indigo-400 focus:outline-none pr-5 text-right cursor-pointer">
+                </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-400 group-hover:text-indigo-500 transition-colors">
+                <span class="text-[10px]">▼</span>
+            </div>
+        </div>
+    </div>
+</div>
 
                 <div class="flex justify-center items-center gap-4 mb-8 px-2 relative">
                     <div class="glass-container">
@@ -156,7 +162,11 @@
                     <p class="text-sm font-bold text-gray-700 dark:text-gray-200">データを読み込み中...</p>
                 </div>
                 
-                <div id="liver-rank-card" class="mx-2 mt-4 mb-2 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden hidden transition-colors">
+                <div id="liver-rank-card" class="mx-2 mt-4 mb-2 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden hidden transition-all cursor-pointer group hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 active:scale-[0.99]">
+    
+    <div class="absolute top-3 right-3 text-gray-200 dark:text-gray-700 group-hover:text-indigo-400 transition-colors z-20">
+        <span class="text-sm">✏️</span>
+    </div>
                     <div class="flex justify-between items-end mb-2 relative z-10">
                         <div>
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LIVER RANK</p>

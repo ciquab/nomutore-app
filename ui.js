@@ -86,7 +86,7 @@ export const UI = {
             'manual-exercise-name', 'manual-date', 
             'weight-input', 'height-input', 'age-input', 'gender-input',
             'setting-mode-1', 'setting-mode-2', 'setting-base-exercise', 'theme-input','setting-default-record-exercise',
-            'btn-mode-1', 'btn-mode-2', 
+            'home-mode-select', 
             'tank-liquid', 'tank-empty-icon', 'tank-cans', 'tank-minutes', 'tank-message',
             'log-list', 'history-base-label',
             'liver-rank-card', 'rank-title', 'dry-count', 'rank-progress', 'rank-next-msg',
@@ -448,33 +448,45 @@ export const UI = {
         toggleModal('help-modal', true);
     },
 
-    updateModeButtons: () => {
+    updateModeSelector: () => {
         const modes = Store.getModes();
-        const btn1 = DOM.elements['btn-mode-1'];
-        const btn2 = DOM.elements['btn-mode-2'];
-        if(btn1) btn1.textContent = `🍺 ${modes.mode1}換算`;
-        if(btn2) btn2.textContent = `🍺🍺 ${modes.mode2}換算`;
+        const select = DOM.elements['home-mode-select'];
+        if (!select) return;
+
+        select.innerHTML = '';
+        
+        // Mode 1 option
+        const opt1 = document.createElement('option');
+        opt1.value = 'mode1';
+        opt1.textContent = `${modes.mode1} 換算`;
+        
+        // Mode 2 option
+        const opt2 = document.createElement('option');
+        opt2.value = 'mode2';
+        opt2.textContent = `${modes.mode2} 換算`;
+
+        select.appendChild(opt1);
+        select.appendChild(opt2);
+        
+        // 現在の値をセット
+        select.value = StateManager.beerMode;
     },
 
     setBeerMode: (mode) => {
-        StateManager.setBeerMode(mode);
-        const lBtn = DOM.elements['btn-mode-1'];
-        const hBtn = DOM.elements['btn-mode-2'];
+        StateManager.setBeerMode(mode); // StateManager更新
+        
+        const select = DOM.elements['home-mode-select'];
         const liq = DOM.elements['tank-liquid'];
         
-        // 【修正】スタイル定義: truncate と max-w を追加して一行に収める
-        const commonClasses = "px-2 py-2 rounded-md text-xs font-bold transition-all min-w-[90px] max-w-[140px] truncate whitespace-nowrap";
-        const activeClass = "bg-indigo-600 text-white shadow-sm";
-        const inactiveClass = "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700";
+        // ドロップダウンの表示を同期 (プログラムからの変更に対応)
+        if (select && select.value !== mode) {
+            select.value = mode;
+        }
 
         requestAnimationFrame(() => {
             if (mode === 'mode1') {
-                if(lBtn) lBtn.className = `${commonClasses} ${activeClass}`;
-                if(hBtn) hBtn.className = `${commonClasses} ${inactiveClass}`;
                 if(liq) { liq.classList.remove('mode2'); liq.classList.add('mode1'); }
             } else {
-                if(hBtn) hBtn.className = `${commonClasses} ${activeClass}`;
-                if(lBtn) lBtn.className = `${commonClasses} ${inactiveClass}`;
                 if(liq) { liq.classList.remove('mode1'); liq.classList.add('mode2'); }
             }
         });
