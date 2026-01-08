@@ -521,7 +521,7 @@ const exData = EXERCISE[exKey] || EXERCISE['stepper'];
 // 実時間
 const rawMinutes = log.rawMinutes || log.minutes || 0;
 
-// 消費kcal（logic.js に一本化）
+// 消費kcal（logic.jsに一本化）
 const earnedKcal = log.kcal !== undefined
     ? log.kcal
     : Calc.calculateExerciseKcal(rawMinutes, exKey);
@@ -1294,5 +1294,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
 
