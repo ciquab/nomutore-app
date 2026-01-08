@@ -253,15 +253,16 @@ const handleBeerSubmit = async (e) => {
 const handleManualExerciseSubmit = async () => { 
     const dateVal = document.getElementById('manual-date').value;
     const m = parseFloat(document.getElementById('manual-minutes').value); 
-    const applyBonus = document.getElementById('manual-apply-bonus').checked; // チェックボックスの状態
+    const applyBonus = document.getElementById('manual-apply-bonus').checked; 
     
     if (!m || m <= 0) return UI.showMessage('正しい時間を入力してください', 'error'); 
     
-    // applyBonus引数を追加して渡す
-    await recordExercise(document.getElementById('exercise-select').value, m, dateVal, applyBonus); 
+    // editingLogId を第5引数に渡す
+    await recordExercise(document.getElementById('exercise-select').value, m, dateVal, applyBonus, editingLogId); 
     
     document.getElementById('manual-minutes').value=''; 
     toggleModal('manual-exercise-modal', false); 
+    editingLogId = null; // リセット
 };
 
 const handleCheckSubmit = async (e) => {
@@ -450,16 +451,13 @@ const handleTouchEnd = (e) => {
    Internal Logic & Functions
    ========================================================================== */
 
-async function recordExercise(t, m, dateVal = null, applyBonus = true) { 
+async function recordExercise(t, m, dateVal = null, applyBonus = true, existingId = null) { 
     const allLogs = await db.logs.toArray();
     const allChecks = await db.checks.toArray();
     
     const ts = dateVal ? getDateTimestamp(dateVal) : Date.now();
 
-    // 【修正】Calc.getStreakAtDate を使用して「その時点」のStreakを取得
     const streak = Calc.getStreakAtDate(ts, allLogs, allChecks);
-    
-    // チェックボックスがオフなら倍率は1.0固定
     const multiplier = applyBonus ? Calc.getStreakMultiplier(streak) : 1.0;
 
     const i = EXERCISE[t];
@@ -468,9 +466,12 @@ async function recordExercise(t, m, dateVal = null, applyBonus = true) {
     const eq = Calc.stepperEq(bonusKcal);
     const earnedMinutes = Math.round(eq);
 
-    const currentBalance = allLogs.reduce((sum, l) => sum + l.minutes, 0);
+    // 更新の場合は、計算前の残高から「自分自身の古い値」を除外して計算する
+    let currentBalance = allLogs.reduce((sum, l) => {
+        if (existingId && l.id === existingId) return sum;
+        return sum + l.minutes;
+    }, 0);
 
-    // メモ欄の文言も調整
     let bonusMemo = '';
     if (applyBonus && multiplier > 1.0) {
         bonusMemo = `🔥 Streak Bonus x${multiplier}`;
@@ -478,23 +479,34 @@ async function recordExercise(t, m, dateVal = null, applyBonus = true) {
         bonusMemo = `(Bonusなし)`;
     }
 
-    await db.logs.add({
+    const logData = {
         name: `${i.icon} ${i.label}`, 
         type: '返済', 
         minutes: earnedMinutes, 
         rawMinutes: m, 
         timestamp: ts,
-        memo: bonusMemo
-    }); 
-    
-    if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {
-        UI.showConfetti();
-        UI.showMessage(`借金完済！おめでとう！🎉\n${i.label} ${m}分 記録完了`, 'success');
+        memo: bonusMemo,
+        exerciseKey: t // 後で編集しやすいようにキーも保存しておく
+    };
+
+    if (existingId) {
+        // 更新処理
+        await db.logs.update(existingId, logData);
+        UI.showMessage('記録を更新しました', 'success');
     } else {
-        if (multiplier > 1.0) {
-            UI.showMessage(`${i.label} ${m}分 記録！\n🔥連続休肝ボーナス！返済効率 x${multiplier}`, 'success'); 
+        // 新規追加
+        await db.logs.add(logData);
+        
+        // 完済演出 (借金状態からプラスになった時のみ)
+        if (currentBalance < 0 && (currentBalance + earnedMinutes) >= 0) {
+            UI.showConfetti();
+            UI.showMessage(`借金完済！おめでとう！🎉\n${i.label} ${m}分 記録完了`, 'success');
         } else {
-            UI.showMessage(`${i.label} ${m}分 記録！`, 'success'); 
+            if (multiplier > 1.0) {
+                UI.showMessage(`${i.label} ${m}分 記録！\n🔥連続休肝ボーナス！返済効率 x${multiplier}`, 'success'); 
+            } else {
+                UI.showMessage(`${i.label} ${m}分 記録！`, 'success'); 
+            }
         }
     }
     
@@ -754,8 +766,23 @@ function bindEvents() {
             if (log) {
                 editingLogId = id;
                 toggleModal('log-detail-modal', false);
-                UI.openBeerModal(log);
+                
+                // 借金(マイナス)ならビール、返済(プラス)なら運動
+                if (log.minutes < 0) {
+                    UI.openBeerModal(log);
+                } else {
+                    // 運動モーダルを編集モードで開く
+                    UI.openManualInput(log);
+                }
             }
+        }
+    });
+
+    // 【追加】運動セレクトボックスを変えたらラベルも変える (bindEvents内の適当な場所に追加)
+    document.getElementById('exercise-select')?.addEventListener('change', function() {
+        const nameEl = document.getElementById('manual-exercise-name');
+        if (nameEl && EXERCISE[this.value]) {
+            nameEl.textContent = EXERCISE[this.value].label;
         }
     });
 

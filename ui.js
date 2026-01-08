@@ -368,15 +368,59 @@ export const UI = {
         toggleModal('check-modal', true); 
     },
 
-    openManualInput: () => { 
+    openManualInput: (log = null) => { 
         const select = document.getElementById('exercise-select');
-        const label = EXERCISE[select.value] ? EXERCISE[select.value].label : '運動';
-        
         const nameEl = DOM.elements['manual-exercise-name'];
-        if (nameEl) nameEl.textContent = label; 
-        
         const dateEl = DOM.elements['manual-date'];
-        if (dateEl) dateEl.value = UI.getTodayString();
+        const minInput = document.getElementById('manual-minutes');
+        const bonusCheck = document.getElementById('manual-apply-bonus');
+        const submitBtn = document.getElementById('btn-submit-manual');
+
+        if (!select || !dateEl || !minInput || !bonusCheck || !submitBtn) return;
+
+        if (log) {
+            // 【編集モード】
+            submitBtn.textContent = '更新する';
+            submitBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+            submitBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+
+            // 値をセット
+            dateEl.value = dayjs(log.timestamp).format('YYYY-MM-DD');
+            minInput.value = log.rawMinutes || '';
+            
+            // 運動の種類を選択状態にする
+            let key = log.exerciseKey;
+            if (!key) {
+                // 古いデータにはキーがないので、名前から逆引き検索
+                const logName = log.name || '';
+                const entry = Object.entries(EXERCISE).find(([k, v]) => logName.includes(v.label));
+                if (entry) key = entry[0];
+            }
+            if (key && select.querySelector(`option[value="${key}"]`)) {
+                select.value = key;
+            }
+
+            // ボーナス有無のチェック状態を復元（メモに"Bonus"が含まれているかで簡易判定）
+            const hasBonus = log.memo && log.memo.includes('Bonus');
+            bonusCheck.checked = hasBonus;
+
+            // ラベル更新
+            if (nameEl) nameEl.textContent = EXERCISE[select.value]?.label || '運動';
+
+        } else {
+            // 【新規モード】
+            submitBtn.textContent = '記録する';
+            submitBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+            submitBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+            
+            // リセット
+            dateEl.value = UI.getTodayString();
+            minInput.value = '';
+            bonusCheck.checked = true; // デフォルトはON
+            
+            const label = EXERCISE[select.value] ? EXERCISE[select.value].label : '運動';
+            if (nameEl) nameEl.textContent = label; 
+        }
         
         toggleModal('manual-exercise-modal', true); 
     },
