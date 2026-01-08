@@ -660,34 +660,106 @@ const DataManager = {
         } 
         DataManager.download(c, `nomutore-${n}.csv`, 'text/csv'); 
     },
-    exportJSON: async () => { 
+
+    // 【修正】設定(localStorage)も含めてJSON化するヘルパー
+    getAllData: async () => {
         const logs = await db.logs.toArray();
         const checks = await db.checks.toArray();
-        DataManager.download(JSON.stringify({logs, checks}, null, 2), 'nomutore-backup.json', 'application/json'); 
+        
+        // localStorageの設定値を取得
+        const settings = {};
+        Object.values(APP.STORAGE_KEYS).forEach(key => {
+            const val = localStorage.getItem(key);
+            if (val !== null) settings[key] = val;
+        });
+
+        return { logs, checks, settings };
     },
+
+    exportJSON: async () => { 
+        const data = await DataManager.getAllData();
+        DataManager.download(JSON.stringify(data, null, 2), 'nomutore-backup.json', 'application/json'); 
+    },
+
     copyToClipboard: async () => { 
-        const logs = await db.logs.toArray();
-        const checks = await db.checks.toArray();
-        navigator.clipboard.writeText(JSON.stringify({logs, checks}, null, 2))
+        const data = await DataManager.getAllData();
+        navigator.clipboard.writeText(JSON.stringify(data, null, 2))
             .then(() => UI.showMessage('コピーしました','success')); 
     },
+
     importJSON: (i) => { 
         const f = i.files[0]; if(!f) return; 
         const r = new FileReader(); 
         r.onload = async (e) => { 
             try { 
                 const d = JSON.parse(e.target.result); 
-                if(confirm('データを復元しますか？')){ 
-                    if(d.logs) await db.logs.bulkAdd(d.logs);
-                    if(d.checks) await db.checks.bulkAdd(d.checks);
+                
+                // メッセージを少し変更
+                if(confirm('データを復元しますか？\n※既存のデータと重複しないログのみ追加されます。\n※設定は上書きされます。')){ 
+                    
+                    // 1. 設定の復元 (ここは上書きでOK)
+                    if (d.settings) {
+                        Object.entries(d.settings).forEach(([k, v]) => localStorage.setItem(k, v));
+                    }
+
+                    // --- ここから重複チェックロジック ---
+
+                    // 2. ログの復元 (Smart Merge)
+                    if (d.logs && Array.isArray(d.logs)) {
+                        // 現在DBにある全ログのタイムスタンプを取得してSetにする（検索を高速化）
+                        const existingLogs = await db.logs.toArray();
+                        const existingTimestamps = new Set(existingLogs.map(l => l.timestamp));
+
+                        // 「既存DBに存在しないタイムスタンプ」のログだけを抽出
+                        const uniqueLogs = d.logs
+                            .filter(l => !existingTimestamps.has(l.timestamp))
+                            .map(l => {
+                                const { id, ...rest } = l; // IDを除外
+                                return rest;
+                            });
+                        
+                        if (uniqueLogs.length > 0) {
+                            await db.logs.bulkAdd(uniqueLogs);
+                            console.log(`${uniqueLogs.length}件のログを追加しました`);
+                        }
+                    }
+
+                    // 3. チェックの復元 (Smart Merge)
+                    if (d.checks && Array.isArray(d.checks)) {
+                        const existingChecks = await db.checks.toArray();
+                        const existingCheckTimestamps = new Set(existingChecks.map(c => c.timestamp));
+
+                        const uniqueChecks = d.checks
+                            .filter(c => !existingCheckTimestamps.has(c.timestamp))
+                            .map(c => {
+                                const { id, ...rest } = c; // IDを除外
+                                return rest;
+                            });
+
+                        if (uniqueChecks.length > 0) {
+                            await db.checks.bulkAdd(uniqueChecks);
+                        }
+                    }
+
+                    // --- ここまで ---
+
+                    // UIへの設定反映
+                    UI.updateModeSelector();
+                    updateBeerSelectOptions(); 
+                    UI.applyTheme(localStorage.getItem(APP.STORAGE_KEYS.THEME) || 'system');
+                    
                     await refreshUI(); 
-                    UI.showMessage('復元しました','success'); 
+                    UI.showMessage('復元しました (重複はスキップされました)','success'); 
                 } 
-            } catch(err) { UI.showMessage('読込失敗','error'); } 
+            } catch(err) { 
+                console.error(err);
+                UI.showMessage('読込失敗: データ形式が不正です','error'); 
+            } 
             i.value = ''; 
         }; 
         r.readAsText(f); 
     },
+
     download: (d,n,t) => { 
         const b = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), d], {type:t});
         const u = URL.createObjectURL(b);
