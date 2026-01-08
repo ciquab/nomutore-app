@@ -474,7 +474,7 @@ const handleShare = async () => {
 
     const mode1 = localStorage.getItem(APP.STORAGE_KEYS.MODE1) || APP.DEFAULTS.MODE1;
     const beerCount = Calc.convertKcalToBeerCount(Math.abs(totalKcal), mode1);
-    const beerIcon = STYLE_METADATA[mode1]?.icon || '🍺';
+    const beerIcon = '🍺';
 
     const balanceMinutes = Calc.convertKcalToMinutes(Math.abs(totalKcal), baseEx);
 
@@ -1309,6 +1309,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('./service-worker.js'); });
 
 }
+
 
 
 
